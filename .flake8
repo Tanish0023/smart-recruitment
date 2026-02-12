@@ -1,0 +1,15 @@
+[flake8]
+max-line-length = 100
+exclude =
+    .git,
+    __pycache__,
+    migrations,
+    venv,
+    env,
+    node_modules,
+    static,
+    media
+
+ignore =
+    E203,
+    W503
