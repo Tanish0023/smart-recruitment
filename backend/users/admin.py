@@ -9,12 +9,19 @@ User = get_user_model()
 
 @admin.register(Company)
 class CompanyAdmin(admin.ModelAdmin):
-	list_display = ("id", "name", "website", "created_at")
-	search_fields = ("name",)
+    list_display = ("id", "name", "website", "created_at")
+    search_fields = ("name",)
 
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
-	list_display = ("username", "email", "is_staff", "is_recruiter", "company")
-	list_filter = ("is_staff", "is_recruiter")
-	fieldsets = DjangoUserAdmin.fieldsets + (("Recruiter", {"fields": ("is_recruiter", "company")}),)
+    list_display = ("username", "email", "is_staff", "is_recruiter", "company")
+    list_filter = ("is_staff", "is_recruiter")
+    fieldsets = DjangoUserAdmin.fieldsets + (
+        ("Recruiter", {"fields": ("is_recruiter", "company")}),
+    )
+
+
+admin.site.site_header = "Smart Recruiter"
+admin.site.index_title = "Admin"
+admin.site.site_title = "Smart Recruiter"

@@ -118,5 +118,7 @@ class Mutation(graphene.ObjectType):
     create_company = CreateCompany.Field()
     applicant_login = ApplicantLogin.Field()
     company_login = CompanyLogin.Field()
+
     token_auth = graphql_jwt.ObtainJSONWebToken.Field()
     verify_token = graphql_jwt.Verify.Field()
+    refresh_token = graphql_jwt.Refresh.Field()
