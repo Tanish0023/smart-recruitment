@@ -60,7 +60,11 @@ jobs:
       - name: Run Django Tests
         env:
           DEBUG: "True"
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/recruitment_db
+          POSTGRES_DB: recruitment_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
           REDIS_URL: redis://localhost:6379/0
         run: |
           cd backend

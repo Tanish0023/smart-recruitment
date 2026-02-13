@@ -13,10 +13,6 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import os
 
-DB_NAME = os.getenv("POSTGRES_DB")
-DB_USER = os.getenv("POSTGRES_USER")
-DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -109,14 +105,30 @@ WSGI_APPLICATION = "core.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+USE_SQLITE_FOR_TESTS = os.getenv("USE_SQLITE_FOR_TESTS", "False") == "True"
+
+if USE_SQLITE_FOR_TESTS:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
+        }
+    }
+
+DB_NAME = os.getenv("POSTGRES_DB", "recruitment_db")
+DB_USER = os.getenv("POSTGRES_USER", "postgres")
+DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
+DB_HOST = os.getenv("POSTGRES_HOST", "localhost")
+DB_PORT = os.getenv("POSTGRES_PORT", "5432")
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": DB_NAME,
         "USER": DB_USER,
         "PASSWORD": DB_PASSWORD,
-        "HOST": "db",
-        "PORT": 5432,
+        "HOST": DB_HOST,
+        "PORT": DB_PORT,
     }
 }
 
