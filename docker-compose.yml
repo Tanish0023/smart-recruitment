@@ -41,6 +41,7 @@ services:
       - .env
     environment:
       PYTHONUNBUFFERED: 1
+      POSTGRES_HOST: db
     depends_on:
       db:
         condition: service_healthy
@@ -58,6 +59,7 @@ services:
       - .env
     environment:
       PYTHONUNBUFFERED: 1
+      POSTGRES_HOST: db
     depends_on:
       db:
         condition: service_healthy
@@ -77,6 +79,7 @@ services:
       - .env
     environment:
       PYTHONUNBUFFERED: 1
+      POSTGRES_HOST: db
     depends_on:
       - redis
       - celery

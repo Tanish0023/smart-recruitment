@@ -105,16 +105,6 @@ WSGI_APPLICATION = "core.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-USE_SQLITE_FOR_TESTS = os.getenv("USE_SQLITE_FOR_TESTS", "False") == "True"
-
-if USE_SQLITE_FOR_TESTS:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": ":memory:",
-        }
-    }
-
 DB_NAME = os.getenv("POSTGRES_DB", "recruitment_db")
 DB_USER = os.getenv("POSTGRES_USER", "postgres")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
