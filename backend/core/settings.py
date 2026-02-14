@@ -12,10 +12,25 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.celery import CeleryIntegration
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+sentry_dsn = os.environ.get("SENTRY_DSN")
+
+sentry_sdk.init(
+    dsn=sentry_dsn,
+    integrations=[
+        DjangoIntegration(),
+        CeleryIntegration(),
+    ],
+    send_default_pii=True,
+    traces_sample_rate=1.0,
+)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
