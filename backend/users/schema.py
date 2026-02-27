@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model, authenticate
 from graphene_django.types import DjangoObjectType
 import graphql_jwt
 from graphql_jwt.shortcuts import get_token
+from .decorators import login_required, admin_required
 
 from .models import Company
 
@@ -26,12 +27,15 @@ class Query(graphene.ObjectType):
     companies = graphene.List(CompanyType)
     me = graphene.Field(UserType)
 
+    @admin_required
     def resolve_users(self, info):
         return User.objects.all()
 
+    @admin_required
     def resolve_companies(self, info):
         return Company.objects.all()
 
+    @login_required
     def resolve_me(self, info):
         user = info.context.user
         if user.is_anonymous:
