@@ -52,7 +52,7 @@ class CreateCompany(graphene.Mutation):
 
     def mutate(self, info, name, website=None):
         company = Company.objects.create(name=name, website=website)
-        return CreateCompany(company=company)
+        return CreateCompany(company=company)  # type: ignore
 
 
 class RegisterUser(graphene.Mutation):
@@ -75,7 +75,7 @@ class RegisterUser(graphene.Mutation):
                 raise Exception("Company not found")
         user.set_password(password)
         user.save()
-        return RegisterUser(user=user)
+        return RegisterUser(user=user)  # type: ignore
 
 
 class ApplicantLogin(graphene.Mutation):
@@ -93,7 +93,7 @@ class ApplicantLogin(graphene.Mutation):
         if user.is_recruiter:
             raise Exception("Use recruiter/company login for recruiter accounts")
         token = get_token(user)
-        return ApplicantLogin(token=token, user=user)
+        return ApplicantLogin(token=token, user=user)  # type: ignore
 
 
 class CompanyLogin(graphene.Mutation):
@@ -103,18 +103,17 @@ class CompanyLogin(graphene.Mutation):
     class Arguments:
         username = graphene.String(required=True)
         password = graphene.String(required=True)
-        company_id = graphene.Int(required=True)
 
-    def mutate(self, info, username, password, company_id):
+    def mutate(self, info, username, password):
         user = authenticate(username=username, password=password)
         if not user:
             raise Exception("Invalid credentials")
         if not user.is_recruiter:
             raise Exception("User is not a recruiter")
-        if not user.company or user.company.id != company_id:
-            raise Exception("Recruiter not associated with the provided company")
+        if not user.company:
+            raise Exception("Recruiter not associated with any company")
         token = get_token(user)
-        return CompanyLogin(token=token, user=user)
+        return CompanyLogin(token=token, user=user)  # type: ignore
 
 
 class Mutation(graphene.ObjectType):
