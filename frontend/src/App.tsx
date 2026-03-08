@@ -2,11 +2,11 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TitleUpdater } from "@/components/TitleUpdater";
 
-import LandingPage from "@/pages/LandingPage";
 import ApplicantLogin from "@/pages/applicant/ApplicantLogin";
 import ApplicantRegister from "@/pages/applicant/ApplicantRegister";
 import CompanyLogin from "@/pages/company/CompanyLogin";
 import CompanyRegister from "@/pages/company/CompanyRegister";
+import NewLandingPage from "./pages/landing/NewLandingPage/NewLandingPage";
 
 function App() {
   return (
@@ -15,7 +15,7 @@ function App() {
       <AuthProvider>
         <Routes>
           {/* Landing */}
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<NewLandingPage />} />
 
           {/* Applicant auth */}
           <Route path="/applicant/login" element={<ApplicantLogin />} />
