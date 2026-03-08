@@ -39,6 +39,7 @@ export default function ApplicantLogin() {
     });
 
     const [loginMutation, { loading }] = useMutation(LOGIN_APPLICANT, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onCompleted(data: any) {
             const { token, user } = data.applicantLogin;
             login(token, user);

@@ -75,6 +75,7 @@ export default function CompanyRegister() {
     });
 
     const [createCompany, { loading: creating }] = useMutation(CREATE_COMPANY, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onCompleted(data: any) {
             const companyId = data.createCompany.company.id;
             const values = form.getValues();

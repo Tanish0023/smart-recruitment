@@ -39,6 +39,7 @@ export default function CompanyLogin() {
     });
 
     const [loginMutation, { loading }] = useMutation(LOGIN_COMPANY, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onCompleted(data: any) {
             const { token, user } = data.companyLogin;
             login(token, user);
