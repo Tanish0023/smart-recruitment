@@ -1,21 +1,56 @@
-import { ApolloClient, InMemoryCache, HttpLink, ApolloLink } from "@apollo/client";
+import { ApolloClient, InMemoryCache, ApolloLink } from "@apollo/client";
+import { onError } from "@apollo/client/link/error";
+import createUploadLink from "apollo-upload-client/UploadHttpLink.mjs";
+
+const errorLink = onError(({ graphQLErrors, networkError }: any) => {
+  if (graphQLErrors) {
+    graphQLErrors.forEach(({ message, locations, path }: any) => {
+      console.error(`[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`);
+
+      if (message.includes("Signature has expired") || message.includes("Authentication required")) {
+        console.warn("Session expired. Clearing token and redirecting...");
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("authUser");
+        if (!window.location.pathname.includes("/login")) {
+          window.location.href = "/login";
+        }
+      }
+    });
+  }
+  if (networkError) {
+    console.error(`[Network error]: ${networkError}`);
+  }
+});
 
 const authLink = new ApolloLink((operation, forward) => {
   const token = localStorage.getItem("authToken");
-  operation.setContext({
-    headers: {
-      Authorization: token ? `Bearer ${token}` : "",
-    },
-  });
+
+  if (token) {
+    operation.setContext(({ headers = {} }) => ({
+      headers: {
+        ...headers,
+        Authorization: `Bearer ${token}`,
+        "apollo-require-preflight": "true",
+      },
+    }));
+  } else {
+    operation.setContext(({ headers = {} }) => ({
+      headers: {
+        ...headers,
+        "apollo-require-preflight": "true",
+      },
+    }));
+  }
+
   return forward(operation);
 });
 
-const httpLink = new HttpLink({
+const httpLink = new createUploadLink({
   uri: import.meta.env.VITE_GRAPHQL_URL || "http://localhost:8000/graphql/",
 });
 
 const client = new ApolloClient({
-  link: authLink.concat(httpLink),
+  link: ApolloLink.from([errorLink, authLink, httpLink]),
   cache: new InMemoryCache(),
 });
 

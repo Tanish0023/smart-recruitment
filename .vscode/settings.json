@@ -1,6 +1,9 @@
 {
-    "python-envs.defaultEnvManager": "ms-python.python:pipenv",
+    "python.defaultInterpreterPath": "${workspaceFolder}/backend/venv/bin/python",
     "python.analysis.extraPaths": [
-        "./backend"
-    ]
+        "${workspaceFolder}/backend"
+    ],
+    "files.associations": {
+        "*.graphql": "graphql"
+    }
 }
