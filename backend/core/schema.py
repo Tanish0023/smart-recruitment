@@ -1,12 +1,13 @@
 import graphene
 import users.schema
+import jobs.schema
 
 
-class Query(users.schema.Query, graphene.ObjectType):
+class Query(users.schema.Query, jobs.schema.JobQuery, graphene.ObjectType):
     pass
 
 
-class Mutation(users.schema.Mutation, graphene.ObjectType):
+class Mutation(users.schema.Mutation, jobs.schema.JobMutation, graphene.ObjectType):
     pass
 
 

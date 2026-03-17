@@ -2,8 +2,12 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Menu, X, Rocket } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Navbar = () => {
+  const { isAuthenticated, user } = useAuth();
+  const dashboardPath = user?.isRecruiter ? '/company/dashboard' : '/applicant/dashboard';
+
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -38,19 +42,31 @@ const Navbar = () => {
           <nav className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-gray-600 hover:text-indigo-600 font-medium transition-colors">Features</a>
             <a href="#how-it-works" className="text-gray-600 hover:text-indigo-600 font-medium transition-colors">How it Works</a>
-            <a href="#tech" className="text-gray-600 hover:text-indigo-600 font-medium transition-colors">Tech Stack</a>
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
-            <Link to="/applicant/login" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors">
-              Sign In
-            </Link>
-            <Link
-              to="/applicant/register"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-full font-medium transition-all hover:shadow-lg hover:-translate-y-0.5"
-            >
-              Get Started
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <Link
+                  to={dashboardPath}
+                  className='bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-full font-medium transition-all hover:shadow-lg hover:-translate-y-0.5'
+                >
+                  Dashboard
+                </Link>
+              </>
+            ) :(
+              <>
+                  <Link to="/applicant/login" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors">
+                    Sign In
+                  </Link>
+                  <Link
+                    to="/applicant/register"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-full font-medium transition-all hover:shadow-lg hover:-translate-y-0.5"
+                  >
+                    Get Started
+                  </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -74,11 +90,10 @@ const Navbar = () => {
           <div className="flex flex-col px-4 gap-4">
             <a href="#features" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 font-medium py-2">Features</a>
             <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 font-medium py-2">How it Works</a>
-            <a href="#tech" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 font-medium py-2">Tech Stack</a>
             <hr className="border-gray-100" />
-            <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="text-gray-700 font-medium py-2">Sign In</Link>
+            <Link to="/applicant/login" onClick={() => setMobileMenuOpen(false)} className="text-gray-700 font-medium py-2">Sign In</Link>
             <Link
-              to="/signup"
+              to="/applicant/register"
               onClick={() => setMobileMenuOpen(false)}
               className="bg-indigo-600 text-white text-center px-4 py-3 rounded-xl font-medium"
             >

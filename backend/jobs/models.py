@@ -65,13 +65,13 @@ class JobApplication(models.Model):
         related_name="job_applications",
     )
 
-    resume_url = models.TextField()
+    resume_file = models.FileField(upload_to="resumes/", null=True, blank=True)
 
     # recruiter updates this
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default="applied",
+        default="reviewing",
     )
 
     # future AI parsing output

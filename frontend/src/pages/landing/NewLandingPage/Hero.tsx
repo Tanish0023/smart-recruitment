@@ -55,10 +55,10 @@ const Hero = () => {
               <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link
-              to="/applicant/login"
+              to="/jobs"
               className="w-full sm:w-auto px-8 py-4 bg-white hover:bg-gray-50 text-gray-800 border-2 border-gray-200 rounded-full font-semibold text-lg transition-all"
             >
-              Sign In
+              Find Jobs
             </Link>
           </motion.div>
 
