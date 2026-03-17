@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -33,7 +33,6 @@ export default function JobDetailPage() {
 
     const [applyOpen, setApplyOpen] = useState(false);
     const [resumeFile, setResumeFile] = useState<File | null>(null);
-    const [applied, setApplied] = useState(false);
     const [applyError, setApplyError] = useState("");
     const [success, setSuccess] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
@@ -47,18 +46,14 @@ export default function JobDetailPage() {
         skip: !isAuthenticated || user?.isRecruiter,
     });
 
-    useEffect(() => {
-        if (appsData?.myApplications.find((a: { job: { id: string } }) => a.job.id === id)) {
-            setApplied(true);
-        }
-    }, [appsData, id]);
+    const hasApplied = Boolean(appsData?.myApplications.some((application) => application.job.id === id));
+    const applied = success || hasApplied;
 
     const [applyMutation, { loading: applying }] = useMutation(APPLY_TO_JOB, {
         onCompleted() {
-            setApplied(true);
             setSuccess(true);
         },
-        onError(err: any) {
+        onError(err) {
             setApplyError(err.message);
         },
     });

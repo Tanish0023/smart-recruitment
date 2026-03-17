@@ -60,6 +60,9 @@ interface UpdateApplicationStatusData {
 
 type Tab = "jobs" | "post" | "applicants";
 
+const DASHBOARD_TAB_STORAGE_KEY = "company-dashboard-active-tab";
+const DASHBOARD_TABS: Tab[] = ["jobs", "post", "applicants"];
+
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
     applied: { label: "Applied", color: "bg-blue-100 text-blue-700" },
     reviewing: { label: "Reviewing", color: "bg-amber-100 text-amber-700" },
@@ -69,8 +72,6 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 const STATUS_OPTIONS = ["applied", "reviewing", "shortlisted", "rejected", "hired"];
-
-const NAV_ITEMS = []; // Removed in favor of Tabs-driven sidebar
 
 /* ─── Schema ────────────────────────────────────────── */
 const jobSchema = z.object({
@@ -83,10 +84,10 @@ const jobSchema = z.object({
 type JobFormValues = z.infer<typeof jobSchema>;
 
 /* ─── Validation Adapter ────────────────────────────── */
-const validateWithZod = (schema: z.ZodSchema) => (values: any) => {
+const validateWithZod = (schema: z.ZodSchema) => (values: unknown) => {
     try {
         schema.parse(values);
-    } catch (err: any) {
+    } catch (err: unknown) {
         if (err instanceof z.ZodError) {
             return err.flatten().fieldErrors;
         }
@@ -122,31 +123,19 @@ function JobForm({ initial, onSubmit, loading, submitLabel = "Save" }: JobFormPr
                         <label className="text-sm font-medium text-gray-700 block mb-1">
                             Job Title <span className="text-red-500">*</span>
                         </label>
-                        <Field name="title">
-                            {({ field }: any) => (
-                                <Input {...field} placeholder="e.g. Senior Frontend Engineer" />
-                            )}
-                        </Field>
+                        <Field as={Input} name="title" placeholder="e.g. Senior Frontend Engineer" />
                         <ErrorMessage name="title" component="p" className="text-xs text-red-500 mt-1" />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="text-sm font-medium text-gray-700 block mb-1">Location</label>
-                            <Field name="location">
-                                {({ field }: any) => (
-                                    <Input {...field} placeholder="e.g. Bangalore / Remote" />
-                                )}
-                            </Field>
+                            <Field as={Input} name="location" placeholder="e.g. Bangalore / Remote" />
                             <ErrorMessage name="location" component="p" className="text-xs text-red-500 mt-1" />
                         </div>
                         <div>
                             <label className="text-sm font-medium text-gray-700 block mb-1">Salary Range</label>
-                            <Field name="salaryRange">
-                                {({ field }: any) => (
-                                    <Input {...field} placeholder="e.g. ₹8L – ₹14L" />
-                                )}
-                            </Field>
+                            <Field as={Input} name="salaryRange" placeholder="e.g. ₹8L – ₹14L" />
                             <ErrorMessage name="salaryRange" component="p" className="text-xs text-red-500 mt-1" />
                         </div>
                     </div>
@@ -155,16 +144,13 @@ function JobForm({ initial, onSubmit, loading, submitLabel = "Save" }: JobFormPr
                         <label className="text-sm font-medium text-gray-700 block mb-1">
                             Description <span className="text-red-500">*</span>
                         </label>
-                        <Field name="description">
-                            {({ field }: any) => (
-                                <textarea
-                                    {...field}
-                                    rows={6}
-                                    placeholder="Describe the role, responsibilities, and requirements…"
-                                    className="w-full text-sm rounded-xl border border-gray-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-                                />
-                            )}
-                        </Field>
+                        <Field
+                            as="textarea"
+                            name="description"
+                            rows={6}
+                            placeholder="Describe the role, responsibilities, and requirements..."
+                            className="w-full text-sm rounded-xl border border-gray-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                        />
                         <ErrorMessage name="description" component="p" className="text-xs text-red-500 mt-1" />
                     </div>
 
@@ -186,26 +172,33 @@ function JobForm({ initial, onSubmit, loading, submitLabel = "Save" }: JobFormPr
 
 /* ─── Main Component ─────────────────────────────────── */
 export default function CompanyDashboard() {
-    const [activeTab, setActiveTab] = useState<Tab>("jobs");
+    const [activeTab, setActiveTab] = useState<Tab>(() => {
+        if (typeof window === "undefined") {
+            return "jobs";
+        }
+
+        const savedTab = window.localStorage.getItem(DASHBOARD_TAB_STORAGE_KEY);
+        return DASHBOARD_TABS.includes(savedTab as Tab) ? (savedTab as Tab) : "jobs";
+    });
     const [editJob, setEditJob] = useState<Job | null>(null);
     const [deleteJob, setDeleteJobState] = useState<Job | null>(null);
     const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState("");
+    const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        window.localStorage.setItem(DASHBOARD_TAB_STORAGE_KEY, activeTab);
+    }, [activeTab]);
 
     /* ── Queries ── */
     const { data: jobsData, loading: jobsLoading, refetch: refetchJobs } =
         useQuery<{ companyJobs: Job[] }>(GET_COMPANY_JOBS);
-    const { data: applicantsData, loading: applicantsLoading, refetch: refetchApplicants } =
+    const defaultSelectedJobId = selectedJobId ?? jobsData?.companyJobs?.[0]?.id ?? null;
+    const { data: applicantsData, loading: applicantsLoading } =
         useQuery<{ jobApplicants: Applicant[] }>(GET_JOB_APPLICANTS, {
-            variables: { jobId: Number(selectedJobId) },
-            skip: !selectedJobId,
+            variables: { jobId: Number(defaultSelectedJobId) },
+            skip: !defaultSelectedJobId,
         });
-
-    useEffect(() => {
-        if (jobsData?.companyJobs?.length && !selectedJobId) {
-            setSelectedJobId(jobsData.companyJobs[0].id);
-        }
-    }, [jobsData, selectedJobId]);
 
     /* ── Mutations ── */
     function flash(msg: string) { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(""), 3000); }
@@ -221,23 +214,7 @@ export default function CompanyDashboard() {
         onCompleted() { refetchJobs(); setDeleteJobState(null); flash("Job deleted."); },
     });
     const [updateStatus] = useMutation<UpdateApplicationStatusData>(UPDATE_APPLICATION_STATUS, {
-        update(cache, { data }) {
-            const updated = data?.updateApplicationStatus?.application;
-
-            if (!updated) return;
-
-            cache.modify({
-                fields: {
-                    jobApplicants(existing = []) {
-                        return existing.map((app: any) =>
-                            app.id === updated.id
-                                ? { ...app, status: updated.status }
-                                : app
-                        );
-                    },
-                },
-            });
-        },
+        onCompleted() { },
     });
 
     const jobs = jobsData?.companyJobs ?? [];
@@ -251,7 +228,7 @@ export default function CompanyDashboard() {
                     <TabsList className="flex flex-col h-auto bg-transparent gap-1 p-0">
                         <TabsTrigger
                             value="jobs"
-                            className="justify-start gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 hover:bg-gray-100 transition-all border-none shadow-none w-full"
+                            className="pl-10 justify-start gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 hover:bg-gray-100 transition-all border-none shadow-none w-full"
                         >
                             <Briefcase className="w-4 h-4" />
                             <span>My Jobs</span>
@@ -265,7 +242,7 @@ export default function CompanyDashboard() {
                         </TabsTrigger>
                         <TabsTrigger
                             value="post"
-                            className="justify-start gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 hover:bg-gray-100 transition-all border-none shadow-none w-full ring-indigo-700 ring-1 text-indigo-700"
+                            className="justify-start mt-5 gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 hover:bg-gray-100 transition-all border-none shadow-none w-full ring-indigo-700 ring-1 text-indigo-700"
                         >
                             <Plus className="w-4 h-4" />
                             <span>Post a Job</span>
@@ -409,7 +386,7 @@ export default function CompanyDashboard() {
                                         <button
                                             key={job.id}
                                             onClick={() => setSelectedJobId(job.id)}
-                                            className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${selectedJobId === job.id
+                                            className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${defaultSelectedJobId === job.id
                                                 ? "bg-indigo-600 text-white border-indigo-600"
                                                 : "bg-white text-gray-600 border-gray-200 hover:border-indigo-400"
                                                 }`}
@@ -423,7 +400,7 @@ export default function CompanyDashboard() {
                                 </div>
                             </div>
 
-                            {selectedJobId && (
+                            {defaultSelectedJobId && (
                                 <div className="mt-8 space-y-4">
                                     {applicantsLoading && (
                                         <div className="flex items-center gap-2 text-gray-400 py-8 justify-center">
@@ -437,7 +414,8 @@ export default function CompanyDashboard() {
                                         </div>
                                     )}
                                     {applicants.map((app) => {
-                                        const s = STATUS_CONFIG[app.status] ?? STATUS_CONFIG.applied;
+                                        const currentStatus = (statusOverrides[app.id] ?? app.status).toLowerCase();
+                                        const s = STATUS_CONFIG[currentStatus] ?? STATUS_CONFIG.applied;
                                         return (
                                             <div key={app.id} className="bg-white border border-gray-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4 hover:shadow-sm transition-shadow">
                                                 <div className="flex-1 min-w-0">
@@ -462,10 +440,24 @@ export default function CompanyDashboard() {
                                                         {s.label}
                                                     </span>
                                                     <select
-                                                        value={app.status}
-                                                        onChange={(e) =>
-                                                            updateStatus({ variables: { applicationId: Number(app.id), status: e.target.value } })
-                                                        }
+                                                        value={currentStatus}
+                                                        onChange={(e) => {
+                                                            e.preventDefault();
+
+                                                            const newStatus = e.target.value;
+
+                                                            setStatusOverrides((prev) => ({
+                                                                ...prev,
+                                                                [app.id]: newStatus
+                                                            }));
+
+                                                            updateStatus({
+                                                                variables: {
+                                                                applicationId: Number(app.id),
+                                                                status: newStatus
+                                                                }
+                                                            });
+                                                        }}
                                                         className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                                                     >
                                                         {STATUS_OPTIONS.map((s) => (

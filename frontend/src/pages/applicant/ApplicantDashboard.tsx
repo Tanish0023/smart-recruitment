@@ -1,17 +1,16 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import {
-    Briefcase, Search, MapPin, CheckCircle2, Clock, XCircle,
-    Star, UserCheck, Loader2, ArrowRight, Send, Plus,
+    MapPin, CheckCircle2, Clock, XCircle,
+    Star, UserCheck, Loader2, Send, Plus,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { JobCard } from "@/components/JobCard";
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { GET_ALL_JOBS, GET_MY_APPLICATIONS, APPLY_TO_JOB } from "@/graphql/jobs";
+import { GET_MY_APPLICATIONS, APPLY_TO_JOB } from "@/graphql/jobs";
 import { Link } from "react-router-dom";
 
 
@@ -48,20 +47,17 @@ export default function ApplicantDashboard() {
     const [selectedJob, setSelectedJob] = useState<Job | null>(null);
     const [resumeFile, setResumeFile] = useState<File | null>(null);
     const [applyError, setApplyError] = useState("");
-    const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
 
     const { data: appsData, loading: appsLoading, refetch: refetchApps } = useQuery<{ myApplications: Application[] }>(GET_MY_APPLICATIONS);
 
     const [applyMutation, { loading: applying }] = useMutation(APPLY_TO_JOB, {
         onCompleted() {
-            if (selectedJob) setAppliedIds((prev) => new Set([...prev, selectedJob.id]));
             setApplyOpen(false);
             setResumeFile(null);
             setSelectedJob(null);
             refetchApps();
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onError(err: any) { setApplyError(err.message); },
+        onError(err) { setApplyError(err.message); },
     });
 
     const applications = appsData?.myApplications ?? [];
@@ -70,9 +66,6 @@ export default function ApplicantDashboard() {
     //     ...appliedIds,
     // ])
 
-    function openApply(job: Job) {
-        setSelectedJob(job); setApplyError(""); setResumeFile(null); setApplyOpen(true);
-    }
     function submitApply() {
         if (!resumeFile) { setApplyError("Please upload your resume."); return; }
         applyMutation({ variables: { jobId: Number(selectedJob?.id), resume: resumeFile } });

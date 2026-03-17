@@ -1,10 +1,11 @@
 import { ApolloClient, InMemoryCache, ApolloLink } from "@apollo/client";
-import { onError } from "@apollo/client/link/error";
+import { CombinedGraphQLErrors } from "@apollo/client/errors";
+import { ErrorLink } from "@apollo/client/link/error";
 import createUploadLink from "apollo-upload-client/UploadHttpLink.mjs";
 
-const errorLink = onError(({ graphQLErrors, networkError }: any) => {
-  if (graphQLErrors) {
-    graphQLErrors.forEach(({ message, locations, path }: any) => {
+const errorLink = new ErrorLink(({ error }) => {
+  if (CombinedGraphQLErrors.is(error)) {
+    error.errors.forEach(({ message, locations, path }) => {
       console.error(`[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`);
 
       if (message.includes("Signature has expired") || message.includes("Authentication required")) {
@@ -16,9 +17,8 @@ const errorLink = onError(({ graphQLErrors, networkError }: any) => {
         }
       }
     });
-  }
-  if (networkError) {
-    console.error(`[Network error]: ${networkError}`);
+  } else {
+    console.error(`[Network error]: ${error}`);
   }
 });
 

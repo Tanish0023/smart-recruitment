@@ -1,12 +1,8 @@
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 
 const Hero = () => {
-  const { isAuthenticated, user } = useAuth();
-  const dashboardPath = user?.isRecruiter ? '/company/dashboard' : '/applicant/dashboard';
-
   return (
     <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
       {/* Background Elements */}
