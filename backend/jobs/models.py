@@ -5,9 +5,34 @@ from resumes.models import Resume
 User = get_user_model()
 
 
+class Category(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name_plural = "Categories"
+
+    def __str__(self):
+        return self.name
+
+
 class Skill(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    category = models.CharField(max_length=100, blank=True, null=True)
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="skills",
+    )
+    aliases = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Alternative names for this skill (e.g., ['NodeJs', 'Node JS'] for 'Node.js')"
+    )
+
+    class Meta:
+        ordering = ["name"]
 
     def __str__(self):
         return self.name

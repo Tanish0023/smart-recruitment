@@ -62,7 +62,10 @@ export const GET_COMPANY_JOBS = gql`
       skills {
         id
         name
-        category
+        category {
+          id
+          name
+        }
       }
       company {
         id
@@ -77,7 +80,10 @@ export const GET_ALL_SKILLS = gql`
     allSkills {
       id
       name
-      category
+      category {
+        id
+        name
+      }
     }
   }
 `;

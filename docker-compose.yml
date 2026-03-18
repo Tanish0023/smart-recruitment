@@ -66,6 +66,24 @@ services:
       redis:
         condition: service_healthy
 
+  celery_email:
+    build: ./backend
+    container_name: celery_email_worker
+    restart: unless-stopped
+    command: celery -A core worker -l info -Q email_service
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: 1
+      POSTGRES_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   flower:
     build: ./backend
     container_name: flower
@@ -83,6 +101,7 @@ services:
     depends_on:
       - redis
       - celery
+      - celery_email
 
 volumes:
   postgres_data:

@@ -4,12 +4,35 @@ from graphene_django.types import DjangoObjectType
 from graphql import GraphQLError
 from django.contrib.auth import get_user_model
 
-from jobs.models import Job, JobApplication, Skill
+from jobs.models import Job, JobApplication, Skill, Category
 from resumes.models import Resume
 from users.decorators import recruiter_with_company_required, user_required, get_user
+from email_service.tasks import send_application_status_email
 
+from resumes.tasks import resume_parsing
 
 User = get_user_model()
+
+
+class CategoryType(DjangoObjectType):
+    class Meta:
+        model = Category
+        fields = (
+            "id",
+            "name",
+            "description",
+        )
+
+
+class SkillType(DjangoObjectType):
+    class Meta:
+        model = Skill
+        fields = (
+            "id",
+            "name",
+            "category",
+            "aliases",
+        )
 
 
 class JobType(DjangoObjectType):
@@ -37,17 +60,6 @@ class JobType(DjangoObjectType):
         if not user or not user.is_authenticated or not user.is_recruiter:
             return []
         return self.skills.all()
-
-
-class SkillType(DjangoObjectType):
-    class Meta:
-        model = Skill
-        fields = (
-            "id",
-            "name",
-            "category",
-        )
-
 
 class JobApplicationType(DjangoObjectType):
     resume_url = graphene.String()
@@ -86,7 +98,7 @@ class JobQuery(graphene.ObjectType):
 
     @recruiter_with_company_required
     def resolve_all_skills(self, info):
-        return Skill.objects.all().order_by("category", "name")
+        return Skill.objects.select_related("category").order_by("category__name", "name")
 
     # Public single job
     def resolve_job_detail(self, info, job_id):
@@ -288,6 +300,8 @@ class ApplyToJob(graphene.Mutation):
             resume=resume_obj,
         )
 
+        resume_parsing.delay(resume_obj.id)
+
         return ApplyToJob(application=application)
 
 
@@ -315,8 +329,27 @@ class UpdateApplicationStatus(graphene.Mutation):
         if not application:
             raise GraphQLError("Application not found")
 
-        application.status = status
+        requested_status = (status or "").strip().lower()
+        if requested_status == "selected":
+            requested_status = "hired"
+
+        allowed_statuses = {choice for choice, _ in JobApplication.STATUS_CHOICES}
+        if requested_status not in allowed_statuses:
+            allowed = ", ".join(sorted(allowed_statuses | {"selected"}))
+            raise GraphQLError(f"Invalid status. Allowed values: {allowed}")
+
+        previous_status = application.status
+        application.status = requested_status
         application.save()
+
+        # Notify candidate only when final outcome status changes.
+        if requested_status in {"rejected", "hired"} and requested_status != previous_status:
+            send_application_status_email.delay(
+                user_email=application.applicant.email,
+                username=application.applicant.username,
+                job_title=application.job.title,
+                status=requested_status,
+            )
 
         return UpdateApplicationStatus(application=application)
 

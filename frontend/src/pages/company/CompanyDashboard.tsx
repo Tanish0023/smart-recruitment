@@ -33,7 +33,10 @@ interface Job {
 interface Skill {
     id: string;
     name: string;
-    category?: string | null;
+    category?: {
+        id: string;
+        name: string;
+    } | null;
 }
 interface Applicant {
     id: string; status: string; appliedAt: string; resumeUrl: string;
@@ -135,23 +138,23 @@ function JobForm({ initial, allSkills, onSubmit, loading, submitLabel = "Save" }
         >
             {({ isValid, dirty, values, setFieldValue }) => {
                 const normalizedQuery = skillSearch.trim().toLowerCase();
+                const selectedSkillIds = new Set(values.skillIds);
                 const filteredSkills = allSkills.filter((skill) => {
                     if (!normalizedQuery) {
                         return true;
                     }
 
-                    const haystack = `${skill.name} ${skill.category ?? ""}`.toLowerCase();
+                    const haystack = `${skill.name} ${skill.category?.name ?? ""}`.toLowerCase();
                     return haystack.includes(normalizedQuery);
                 });
 
-                const groupedSkills = filteredSkills.reduce<Record<string, Skill[]>>((acc, skill) => {
-                    const category = skill.category || "Other";
-                    if (!acc[category]) {
-                        acc[category] = [];
-                    }
-                    acc[category].push(skill);
-                    return acc;
-                }, {});
+                const selectedSkills = filteredSkills
+                    .filter((skill) => selectedSkillIds.has(skill.id))
+                    .sort((a, b) => a.name.localeCompare(b.name));
+
+                const remainingSkills = filteredSkills
+                    .filter((skill) => !selectedSkillIds.has(skill.id))
+                    .sort((a, b) => a.name.localeCompare(b.name));
 
                 return (
                 <Form className="space-y-4 max-h-[80vh] overflow-scroll px-1">
@@ -199,15 +202,45 @@ function JobForm({ initial, allSkills, onSubmit, loading, submitLabel = "Save" }
                         </div>
 
                         <div className="max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 space-y-2">
-                            {Object.keys(groupedSkills).length === 0 && (
+                            {filteredSkills.length === 0 && (
                                 <p className="text-xs text-gray-500 px-2 py-1">No skills found.</p>
                             )}
 
-                            {Object.entries(groupedSkills).map(([category, skills]) => (
-                                <div key={category} className="rounded-lg border border-gray-100 p-2">
-                                    <p className="text-xs font-semibold text-gray-500 mb-1">{category}</p>
+                            {selectedSkills.length > 0 && (
+                                <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-2">
+                                    <p className="text-xs font-semibold text-indigo-700 mb-1">Selected Skills</p>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                                        {skills.map((skill) => {
+                                        {selectedSkills.map((skill) => {
+                                            const checked = values.skillIds.includes(skill.id);
+                                            return (
+                                                <label
+                                                    key={skill.id}
+                                                    className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-indigo-50 cursor-pointer"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        onChange={(e) => {
+                                                            const next = e.target.checked
+                                                                ? [...values.skillIds, skill.id]
+                                                                : values.skillIds.filter((id) => id !== skill.id);
+                                                            setFieldValue("skillIds", next);
+                                                        }}
+                                                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                    />
+                                                    <span className="text-sm text-gray-700">{skill.name}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {remainingSkills.length > 0 && (
+                                <div className="rounded-lg border border-gray-100 p-2">
+                                    <p className="text-xs font-semibold text-gray-500 mb-1">All Skills</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                                        {remainingSkills.map((skill) => {
                                             const checked = values.skillIds.includes(skill.id);
                                             return (
                                                 <label
@@ -231,7 +264,7 @@ function JobForm({ initial, allSkills, onSubmit, loading, submitLabel = "Save" }
                                         })}
                                     </div>
                                 </div>
-                            ))}
+                            )}
                         </div>
 
                         <p className="text-xs text-gray-500 mt-1">Selected: {values.skillIds.length}</p>

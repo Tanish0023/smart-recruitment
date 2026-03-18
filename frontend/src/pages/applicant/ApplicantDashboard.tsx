@@ -113,7 +113,7 @@ export default function ApplicantDashboard() {
                             )}
                             <div className="grid grid-cols-1 gap-3">
                                 {applications.map((app) => {
-                                    const s = STATUS_CONFIG[app.status] ?? STATUS_CONFIG.applied;
+                                    const s = STATUS_CONFIG[app.status.toLowerCase()] ?? STATUS_CONFIG.applied;
                                     const date = new Date(app.appliedAt).toLocaleDateString("en-IN", {
                                         day: "numeric", month: "short", year: "numeric",
                                     });

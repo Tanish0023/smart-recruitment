@@ -1,13 +1,18 @@
 import graphene
+import logging
+from django.db import IntegrityError
 from django.contrib.auth import get_user_model, authenticate
 from graphene_django.types import DjangoObjectType
+from graphql import GraphQLError
 import graphql_jwt
 from graphql_jwt.shortcuts import get_token
 from .decorators import login_required, admin_required
+from email_service.tasks import send_registration_thank_you_email
 
 from .models import Company
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 class CompanyType(DjangoObjectType):
@@ -66,15 +71,32 @@ class RegisterUser(graphene.Mutation):
         company_id = graphene.Int()
 
     def mutate(self, info, username, email, password, is_recruiter=False, company_id=None):
+        if User.objects.filter(username=username).exists():
+            raise GraphQLError("Username already exists. Please choose a different username.")
+
+        if User.objects.filter(email__iexact=email).exists():
+            raise GraphQLError("Email is already registered. Please use another email or login.")
+
         user = User(username=username, email=email, is_recruiter=is_recruiter)
         if company_id:
             try:
                 company = Company.objects.get(pk=company_id)
                 user.company = company
             except Company.DoesNotExist:
-                raise Exception("Company not found")
+                raise GraphQLError("Company not found")
         user.set_password(password)
-        user.save()
+        try:
+            user.save()
+        except IntegrityError:
+            # Handles race-condition duplicates between check and insert.
+            raise GraphQLError("Unable to register. Username or email may already exist.")
+
+        try:
+            send_registration_thank_you_email.delay(user.email, user.username)
+        except Exception:
+            # Registration should still succeed even if queue publishing fails.
+            logger.exception("Failed to enqueue registration email for user_id=%s", user.id)
+
         return RegisterUser(user=user)  # type: ignore
 
 
