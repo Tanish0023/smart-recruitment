@@ -20,6 +20,7 @@ interface JobDetail {
     description: string;
     location?: string | null;
     salaryRange?: string | null;
+    minimumExperienceRequired?: number | null;
     createdAt: string;
     updatedAt: string;
     isActive: boolean;
@@ -212,6 +213,9 @@ export default function JobDetailPage() {
                                 )}
                                 <span className="inline-flex items-center gap-1 text-sm font-medium bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full">
                                     <Calendar className="w-3.5 h-3.5" /> Posted {dateStr}
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-sm font-medium bg-amber-50 text-amber-700 px-3 py-1.5 rounded-full">
+                                    Min Experience {job.minimumExperienceRequired ?? 0}+ years
                                 </span>
                             </div>
                         </div>

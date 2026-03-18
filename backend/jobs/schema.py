@@ -4,7 +4,8 @@ from graphene_django.types import DjangoObjectType
 from graphql import GraphQLError
 from django.contrib.auth import get_user_model
 
-from jobs.models import Job, JobApplication
+from jobs.models import Job, JobApplication, Skill
+from resumes.models import Resume
 from users.decorators import recruiter_with_company_required, user_required, get_user
 
 
@@ -12,6 +13,8 @@ User = get_user_model()
 
 
 class JobType(DjangoObjectType):
+    skills = graphene.List(lambda: SkillType)
+
     class Meta:
         model = Job
         fields = (
@@ -25,6 +28,24 @@ class JobType(DjangoObjectType):
             "updated_at",
             "location",
             "salary_range",
+            "minimum_experience_required",
+            "skills",
+        )
+
+    def resolve_skills(self, info):
+        user = getattr(info.context, "user", None)
+        if not user or not user.is_authenticated or not user.is_recruiter:
+            return []
+        return self.skills.all()
+
+
+class SkillType(DjangoObjectType):
+    class Meta:
+        model = Skill
+        fields = (
+            "id",
+            "name",
+            "category",
         )
 
 
@@ -42,14 +63,15 @@ class JobApplicationType(DjangoObjectType):
         )
 
     def resolve_resume_url(self, info):
-        if self.resume_file:
-            return info.context.build_absolute_uri(self.resume_file.url)
+        if self.resume and self.resume.file:
+            return info.context.build_absolute_uri(self.resume.file.url)
         return None
 
 
 class JobQuery(graphene.ObjectType):
 
     all_jobs = graphene.List(JobType)
+    all_skills = graphene.List(SkillType)
     job_detail = graphene.Field(JobType, job_id=graphene.Int(required=True))
     company_jobs = graphene.List(JobType)
     my_applications = graphene.List(JobApplicationType)
@@ -61,6 +83,10 @@ class JobQuery(graphene.ObjectType):
     # Public jobs
     def resolve_all_jobs(self, info):
         return Job.objects.filter(is_active=True).order_by("-created_at")
+
+    @recruiter_with_company_required
+    def resolve_all_skills(self, info):
+        return Skill.objects.all().order_by("category", "name")
 
     # Public single job
     def resolve_job_detail(self, info, job_id):
@@ -109,8 +135,19 @@ class CreateJob(graphene.Mutation):
         description = graphene.String(required=True)
         location = graphene.String()
         salary_range = graphene.String()
+        minimum_experience_required = graphene.Int()
+        skills = graphene.List(graphene.Int)
 
-    def mutate(self, info, title, description, location=None, salary_range=None):
+    def mutate(
+        self,
+        info,
+        title,
+        description,
+        location=None,
+        salary_range=None,
+        minimum_experience_required=0,
+        skills=None,
+    ):
         user = get_user(info)
         if not user:
             raise GraphQLError("Authentication required")
@@ -126,7 +163,12 @@ class CreateJob(graphene.Mutation):
             created_by=user,
             location=location,
             salary_range=salary_range,
+            minimum_experience_required=max(minimum_experience_required or 0, 0),
         )
+
+        if skills:
+            selected_skills = Skill.objects.filter(id__in=skills)
+            job.skills.set(selected_skills)
 
         return CreateJob(job=job)
 
@@ -140,7 +182,9 @@ class UpdateJob(graphene.Mutation):
         description = graphene.String()
         location = graphene.String()
         salary_range = graphene.String()
+        minimum_experience_required = graphene.Int()
         is_active = graphene.Boolean()
+        skills = graphene.List(graphene.Int)
 
     def mutate(self, info, job_id, **kwargs):
         user = get_user(info)
@@ -160,8 +204,18 @@ class UpdateJob(graphene.Mutation):
             raise GraphQLError("Job not found")
 
         for key, value in kwargs.items():
+            if key == "skills":
+                continue
+            if key == "minimum_experience_required" and value is not None:
+                setattr(job, key, max(value, 0))
+                continue
             if value is not None:
                 setattr(job, key, value)
+
+        skill_ids = kwargs.get("skills")
+        if skill_ids is not None:
+            selected_skills = Skill.objects.filter(id__in=skill_ids)
+            job.skills.set(selected_skills)
 
         job.save()
 
@@ -226,10 +280,12 @@ class ApplyToJob(graphene.Mutation):
         if already_applied:
             raise GraphQLError("Already applied to this job")
 
+        resume_obj = Resume.objects.create(file=resume)
+
         application = JobApplication.objects.create(
             job=job,
             applicant=user,
-            resume_file=resume,
+            resume=resume_obj,
         )
 
         return ApplyToJob(application=application)

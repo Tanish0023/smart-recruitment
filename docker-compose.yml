@@ -52,7 +52,7 @@ services:
     build: ./backend
     container_name: celery_worker
     restart: unless-stopped
-    command: celery -A core worker -l info
+    command: celery -A core worker -l info -Q resume_parsing
     volumes:
       - ./backend:/app
     env_file:

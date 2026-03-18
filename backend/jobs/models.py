@@ -1,12 +1,26 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from resumes.models import Resume
 
 User = get_user_model()
+
+
+class Skill(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    category = models.CharField(max_length=100, blank=True, null=True)
+
+    def __str__(self):
+        return self.name
 
 
 class Job(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
+    skills = models.ManyToManyField(
+        Skill,
+        related_name="jobs",
+        blank=True,
+    )
 
     company = models.ForeignKey(
         "users.Company",
@@ -27,6 +41,7 @@ class Job(models.Model):
 
     location = models.CharField(max_length=255, blank=True, null=True)
     salary_range = models.CharField(max_length=100, blank=True, null=True)
+    minimum_experience_required = models.PositiveIntegerField(default=0)
 
     def __str__(self):
         return f"{self.title} - {self.company.name}"
@@ -65,7 +80,13 @@ class JobApplication(models.Model):
         related_name="job_applications",
     )
 
-    resume_file = models.FileField(upload_to="resumes/", null=True, blank=True)
+    resume = models.ForeignKey(
+        Resume,
+        on_delete=models.CASCADE,
+        related_name="applications_resume",
+        null=True,
+        blank=True,
+    )
 
     # recruiter updates this
     status = models.CharField(
@@ -73,11 +94,6 @@ class JobApplication(models.Model):
         choices=STATUS_CHOICES,
         default="reviewing",
     )
-
-    # future AI parsing output
-    parsed_data = models.JSONField(blank=True, null=True)
-
-    ai_score = models.FloatField(blank=True, null=True)
 
     applied_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

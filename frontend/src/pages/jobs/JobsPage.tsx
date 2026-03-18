@@ -12,6 +12,7 @@ interface Job {
     description: string;
     location?: string | null;
     salaryRange?: string | null;
+    minimumExperienceRequired?: number | null;
     createdAt: string;
     company: { id: string; name: string };
 }
