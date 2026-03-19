@@ -87,7 +87,7 @@ def extract_skills(text):
 
 
 @shared_task(queue='resume_parsing')
-def resume_parsing(resume_id):
+def resume_parsing(resume_id, user_id=None):
     resume = Resume.objects.get(id=resume_id)
 
     resume.status = Resume.STATUS_CHOICES.PROCESSING
@@ -117,6 +117,15 @@ def resume_parsing(resume_id):
         resume.status = Resume.STATUS_CHOICES.DONE
 
         resume.save(update_fields=["parsed_text", "parsed_data", "status"])
+
+        if user_id:
+            from users.models import User
+            user = User.objects.get(id=user_id)
+
+            extracted_skill_objs = list(Skill.objects.filter(name__in=skills))
+            if extracted_skill_objs:
+                user.skills.add(*extracted_skill_objs)
+
 
     except Exception as e:
         resume.status = Resume.STATUS_CHOICES.FAILED

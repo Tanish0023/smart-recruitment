@@ -207,8 +207,8 @@ export const DELETE_JOB = gql`
 `;
 
 export const APPLY_TO_JOB = gql`
-  mutation ApplyToJob($jobId: Int!, $resume: Upload!) {
-    applyToJob(jobId: $jobId, resume: $resume) {
+  mutation ApplyToJob($jobId: Int!) {
+    applyToJob(jobId: $jobId) {
       application {
         id
         status

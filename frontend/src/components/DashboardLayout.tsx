@@ -50,7 +50,7 @@ export function DashboardLayout({ navItems, children, title, hideHeader, sidebar
                         animate={{ width: 256, opacity: 1 }}
                         exit={{ width: 0, opacity: 0 }}
                         transition={{ duration: 0.25, ease: "easeInOut" }}
-                        className="overflow-hidden flex-shrink-0 bg-white border-r border-gray-200 flex flex-col z-30"
+                        className="overflow-hidden flex-shrink-0 bg-white border-r border-gray-200 flex flex-col z-30 h-screen sticky top-0"
                     >
                         {/* Logo & Toggle */}
                         <div className="flex items-center justify-between gap-2 px-5 py-5 border-b border-gray-100">

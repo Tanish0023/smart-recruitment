@@ -1,16 +1,11 @@
 import graphene
-from pathlib import Path
-from graphene_file_upload.scalars import Upload
 from graphene_django.types import DjangoObjectType
 from graphql import GraphQLError
 from django.contrib.auth import get_user_model
 
 from jobs.models import Job, JobApplication, Skill, Category
-from resumes.models import Resume
 from users.decorators import recruiter_with_company_required, user_required, get_user
 from email_service.tasks import send_application_status_email
-
-from resumes.tasks import resume_parsing
 
 User = get_user_model()
 
@@ -97,7 +92,6 @@ class JobQuery(graphene.ObjectType):
     def resolve_all_jobs(self, info):
         return Job.objects.filter(is_active=True).order_by("-created_at")
 
-    @recruiter_with_company_required
     def resolve_all_skills(self, info):
         return Skill.objects.select_related("category").order_by("category__name", "name")
 
@@ -268,18 +262,18 @@ class ApplyToJob(graphene.Mutation):
 
     class Arguments:
         job_id = graphene.Int(required=True)
-        resume = graphene.Argument(Upload, required=True)
 
-    def mutate(self, info, job_id, resume):
+    def mutate(self, info, job_id):
         user = get_user(info)
         if not user:
             raise GraphQLError("Authentication required")
         if user.is_recruiter:
             raise GraphQLError("Applicant access required")
 
-        resume_name = getattr(resume, "name", "")
-        if Path(resume_name).suffix.lower() != ".pdf":
-            raise GraphQLError("Only .pdf files are allowed for resume upload")
+        if not user.can_apply_to_jobs():
+            raise GraphQLError(
+                "Complete your profile (basic info, skills) and upload your resume before applying"
+            )
 
         job = Job.objects.filter(
             id=job_id,
@@ -297,15 +291,11 @@ class ApplyToJob(graphene.Mutation):
         if already_applied:
             raise GraphQLError("Already applied to this job")
 
-        resume_obj = Resume.objects.create(file=resume)
-
         application = JobApplication.objects.create(
             job=job,
             applicant=user,
-            resume=resume_obj,
+            resume=user.primary_resume,
         )
-
-        resume_parsing.delay(resume_obj.id)
 
         return ApplyToJob(application=application)
 
