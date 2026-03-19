@@ -163,7 +163,7 @@ export default function ApplicantDashboard() {
                                 <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:border-indigo-300 transition-colors cursor-pointer relative group">
                                     <Input
                                         type="file"
-                                        accept=".pdf,.doc,.docx"
+                                        accept=".pdf"
                                         onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
                                         className="absolute inset-0 opacity-0 cursor-pointer"
                                     />

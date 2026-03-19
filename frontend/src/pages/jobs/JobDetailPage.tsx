@@ -70,7 +70,7 @@ export default function JobDetailPage() {
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         ];
         if (!validTypes.includes(file.type)) {
-            setApplyError("Please upload a PDF or Microsoft Word document.");
+            setApplyError("Please upload PDF only.");
             return;
         }
         if (file.size > 1024 * 1024) { // 1MB
@@ -328,7 +328,7 @@ export default function JobDetailPage() {
                                                 <p className="text-sm font-bold text-gray-700">
                                                     {resumeFile ? resumeFile.name : (isDragging ? "Drop to upload" : "Select or drag resume")}
                                                 </p>
-                                                <p className="text-xs text-gray-400 mt-1">PDF or Word document, max 1MB</p>
+                                                <p className="text-xs text-gray-400 mt-1">PDF only, max 1MB</p>
                                             </div>
                                         </div>
                                     </div>

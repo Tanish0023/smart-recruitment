@@ -1,4 +1,5 @@
 import graphene
+from pathlib import Path
 from graphene_file_upload.scalars import Upload
 from graphene_django.types import DjangoObjectType
 from graphql import GraphQLError
@@ -275,6 +276,10 @@ class ApplyToJob(graphene.Mutation):
             raise GraphQLError("Authentication required")
         if user.is_recruiter:
             raise GraphQLError("Applicant access required")
+
+        resume_name = getattr(resume, "name", "")
+        if Path(resume_name).suffix.lower() != ".pdf":
+            raise GraphQLError("Only .pdf files are allowed for resume upload")
 
         job = Job.objects.filter(
             id=job_id,
