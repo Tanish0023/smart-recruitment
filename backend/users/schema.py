@@ -2,6 +2,7 @@ import graphene
 import logging
 from pathlib import Path
 from django.db import IntegrityError
+from django.db import transaction
 from django.utils import timezone
 from django.contrib.auth import get_user_model, authenticate
 from graphene_django.types import DjangoObjectType
@@ -14,6 +15,7 @@ from .decorators import login_required, admin_required
 from email_service.tasks import send_registration_thank_you_email
 
 from .models import Company
+from jobs.models import Job, JobApplication
 from jobs.models import Skill
 from resumes.models import Resume
 from resumes.tasks import resume_parsing
@@ -239,9 +241,10 @@ class UploadPrimaryResume(graphene.Mutation):
 
     class Arguments:
         resume = graphene.Argument(Upload, required=True)
+        update_basic_details = graphene.Boolean(default_value=True)
 
     @login_required
-    def mutate(self, info, resume):
+    def mutate(self, info, resume, update_basic_details=True):
         user = info.context.user
         if user.is_recruiter:
             raise GraphQLError("This action is only available for applicants")
@@ -254,7 +257,7 @@ class UploadPrimaryResume(graphene.Mutation):
         user.primary_resume = resume_obj
         user.save(update_fields=["primary_resume"])
 
-        resume_parsing.delay(resume_obj.id, user.id)
+        resume_parsing.delay(resume_obj.id, user.id, update_basic_details)
 
         return UploadPrimaryResume(user=user)
 
@@ -297,6 +300,34 @@ class CompanyLogin(graphene.Mutation):
         return CompanyLogin(token=token, user=user)  # type: ignore
 
 
+class DeleteUser(graphene.Mutation):
+    success = graphene.Boolean()
+
+    class Arguments:
+        user_id = graphene.Int()
+
+    @login_required
+    def mutate(self, info, user_id=None):
+        requester = info.context.user
+        target = requester
+
+        if user_id is not None and user_id != requester.id:
+            if not (requester.is_staff or requester.is_superuser):
+                raise GraphQLError("You can only delete your own account")
+
+            try:
+                target = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                raise GraphQLError("User not found")
+
+        with transaction.atomic():
+            # Defensive cleanup for environments where DB FK constraints are not cascaded yet.
+            JobApplication.objects.filter(applicant=target).delete()
+            Job.objects.filter(created_by=target).delete()
+            target.delete()
+        return DeleteUser(success=True)
+
+
 class Mutation(graphene.ObjectType):
     register = RegisterUser.Field()
     create_company = CreateCompany.Field()
@@ -305,6 +336,7 @@ class Mutation(graphene.ObjectType):
     complete_applicant_onboarding = CompleteApplicantOnboarding.Field()
     update_applicant_profile_section = UpdateApplicantProfileSection.Field()
     upload_primary_resume = UploadPrimaryResume.Field()
+    delete_user = DeleteUser.Field()
 
     token_auth = graphql_jwt.ObtainJSONWebToken.Field()
     verify_token = graphql_jwt.Verify.Field()

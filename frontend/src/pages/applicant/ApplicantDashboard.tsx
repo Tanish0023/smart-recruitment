@@ -171,7 +171,7 @@ function SearchableDropdown({
             </button>
 
             {open && (
-                <div className="absolute z-50 mt-1 w-full min-w-[240px] bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
+                <div className="absolute z-50 mt-1 w-full min-w-60 bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
                     <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100">
                         <Search className="w-4 h-4 text-gray-400" />
                         <input
@@ -307,9 +307,9 @@ function SkillsMultiSelect({
                                             }`}
                                     >
                                         {isSelected ? (
-                                            <CheckCircle2 className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+                                            <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />
                                         ) : (
-                                            <Circle className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                                            <Circle className="w-4 h-4 text-gray-300 shrink-0" />
                                         )}
                                         {sk.name}
                                     </button>
@@ -348,6 +348,9 @@ export default function ApplicantDashboard() {
 
     const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
     const [resumeError, setResumeError] = useState("");
+    const [isResumeDragActive, setIsResumeDragActive] = useState(false);
+    const fullResumeInputRef = useRef<HTMLInputElement | null>(null);
+    const skillsOnlyResumeInputRef = useRef<HTMLInputElement | null>(null);
 
     // Countries data
     const [countries, setCountries] = useState<CountryInfo[]>([]);
@@ -388,6 +391,7 @@ export default function ApplicantDashboard() {
     const profileCompletion = me?.profileCompletion ?? 0;
     const sections = me?.profileSections;
     const applications = appsData?.myApplications ?? [];
+    const hasPrimaryResume = Boolean(me?.primaryResumeUrl);
 
     const allSkills = skillsData?.allSkills ?? [];
 
@@ -515,14 +519,42 @@ export default function ApplicantDashboard() {
         }
     }
 
-    function onResumeSelect(file: File | null) {
+    function onResumeSelect(file: File | null, updateBasicDetails = true) {
         setResumeError("");
         if (!file) return;
         if (!file.name.toLowerCase().endsWith(".pdf")) {
             setResumeError("Only PDF resumes are supported.");
             return;
         }
-        uploadResume({ variables: { resume: file } });
+        uploadResume({ variables: { resume: file, updateBasicDetails } });
+    }
+
+    function onResumeDrop(e: React.DragEvent<HTMLDivElement>) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsResumeDragActive(false);
+
+        if (uploadingResume) return;
+
+        const droppedFile = e.dataTransfer.files?.[0] ?? null;
+        if (!droppedFile) return;
+
+        // First upload can update basic details; subsequent uploads are skills-only.
+        onResumeSelect(droppedFile, !hasPrimaryResume);
+    }
+
+    function onResumeDragOver(e: React.DragEvent<HTMLDivElement>) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!uploadingResume) {
+            setIsResumeDragActive(true);
+        }
+    }
+
+    function onResumeDragLeave(e: React.DragEvent<HTMLDivElement>) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsResumeDragActive(false);
     }
 
     return (
@@ -600,31 +632,115 @@ export default function ApplicantDashboard() {
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                            <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2 text-gray-900 font-semibold">
-                                        <FileText className="w-5 h-5" /> Resume
+                            <div className="relative overflow-hidden bg-white border border-gray-200 rounded-2xl p-5">
+                                <div className="absolute -right-10 -top-10 w-28 h-28 rounded-full bg-cyan-100/50 blur-2xl" />
+                                <div className="absolute -left-8 -bottom-10 w-24 h-24 rounded-full bg-indigo-100/50 blur-2xl" />
+
+                                <div className="relative flex items-start justify-between gap-3">
+                                    <div>
+                                        <div className="flex items-center gap-2 text-gray-900 font-semibold">
+                                            <FileText className="w-5 h-5 text-indigo-600" /> Resume
+                                            <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">PDF only</span>
+                                        </div>
+                                        <p className="text-sm text-gray-500 mt-1">Upload once, then apply instantly to jobs.</p>
                                     </div>
-                                    {sections?.resume ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Circle className="w-5 h-5 text-gray-300" />}
+                                    {sections?.resume ? (
+                                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">
+                                            <CheckCircle2 className="w-3.5 h-3.5" /> Uploaded
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
+                                            <Circle className="w-3.5 h-3.5" /> Missing
+                                        </span>
+                                    )}
                                 </div>
-                                <p className="text-sm text-gray-500 mt-2">Upload once and apply directly</p>
-                                <div className="mt-4 space-y-3">
+
+                                <div
+                                    className={`relative mt-4 rounded-xl border border-dashed p-3 space-y-3 transition-colors ${isResumeDragActive
+                                        ? "border-indigo-500 bg-indigo-100/70"
+                                        : "border-indigo-200 bg-indigo-50/50"
+                                        }`}
+                                    onDrop={onResumeDrop}
+                                    onDragOver={onResumeDragOver}
+                                    onDragLeave={onResumeDragLeave}
+                                >
                                     {me?.primaryResumeUrl && (
-                                        <a href={me.primaryResumeUrl} target="_blank" rel="noreferrer" className="text-xs text-indigo-700 hover:underline break-all block">
+                                        <a
+                                            href={me.primaryResumeUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-700 hover:text-indigo-800 hover:underline break-all"
+                                        >
+                                            <CheckCircle2 className="w-3.5 h-3.5" />
                                             Current resume attached
                                         </a>
                                     )}
-                                    <div className="relative">
-                                        <Input
-                                            type="file"
-                                            accept=".pdf"
-                                            disabled={uploadingResume}
-                                            onChange={(e) => onResumeSelect(e.target.files?.[0] || null)}
-                                            className="h-11 cursor-pointer"
-                                        />
-                                        {uploadingResume && <Loader2 className="absolute right-3 top-3.5 w-4 h-4 animate-spin text-gray-500" />}
+
+                                    <input
+                                        ref={fullResumeInputRef}
+                                        type="file"
+                                        accept=".pdf"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            onResumeSelect(e.target.files?.[0] || null, true);
+                                            e.currentTarget.value = "";
+                                        }}
+                                    />
+                                    <input
+                                        ref={skillsOnlyResumeInputRef}
+                                        type="file"
+                                        accept=".pdf"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            onResumeSelect(e.target.files?.[0] || null, false);
+                                            e.currentTarget.value = "";
+                                        }}
+                                    />
+
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {!hasPrimaryResume && (
+                                            <Button
+                                                type="button"
+                                                disabled={uploadingResume}
+                                                onClick={() => fullResumeInputRef.current?.click()}
+                                                className="h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white"
+                                            >
+                                                {uploadingResume ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                                Upload Resume
+                                            </Button>
+                                        )}
+
+                                        {hasPrimaryResume && (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                disabled={uploadingResume}
+                                                onClick={() => skillsOnlyResumeInputRef.current?.click()}
+                                                className="h-10 rounded-xl border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                                            >
+                                                {uploadingResume ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                                Upload New Resume (Skills Only)
+                                            </Button>
+                                        )}
                                     </div>
-                                    {resumeError && <p className="text-xs text-red-600">{resumeError}</p>}
+
+                                    <div className="rounded-lg border border-dashed border-indigo-300/80 bg-white/70 px-3 py-2 text-center">
+                                        <p className="text-[11px] font-medium text-indigo-700">Drag and drop your PDF here</p>
+                                        <p className="text-[10px] text-gray-500 mt-0.5">
+                                            {hasPrimaryResume
+                                                ? "Dropping a file will update skills only."
+                                                : "Dropping a file will upload resume and parse profile details."}
+                                        </p>
+                                    </div>
+
+                                    {!hasPrimaryResume && (
+                                        <p className="text-[11px] text-gray-500">Tip: first upload can auto-fill missing basic info and skills from your resume.</p>
+                                    )}
+                                    {hasPrimaryResume && (
+                                        <p className="text-[11px] text-gray-500">Tip: uploading a new resume now refreshes only skills and keeps basic info unchanged.</p>
+                                    )}
+                                    <p className="text-[11px] text-gray-500">For better parsing quality, use a text-based PDF (not scanned image).</p>
+                                    {resumeError && <p className="text-xs text-red-600 font-medium">{resumeError}</p>}
                                 </div>
                             </div>
 
@@ -639,6 +755,22 @@ export default function ApplicantDashboard() {
                                     {sections?.basicInfo ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Circle className="w-5 h-5 text-gray-300" />}
                                 </div>
                                 <p className="text-sm text-gray-500 mt-2">Name, phone, location</p>
+                                <div className="mt-3 space-y-1.5">
+                                    <p className="text-xs text-gray-700 truncate">
+                                        <span className="font-semibold text-gray-900">Name:</span>{" "}
+                                        {me?.firstName || me?.lastName
+                                            ? `${me?.firstName ?? ""} ${me?.lastName ?? ""}`.trim()
+                                            : "Not added yet"}
+                                    </p>
+                                    <p className="text-xs text-gray-700 truncate">
+                                        <span className="font-semibold text-gray-900">Phone:</span>{" "}
+                                        {me?.phone?.trim() ? me.phone : "Not added yet"}
+                                    </p>
+                                    <p className="text-xs text-gray-700 truncate">
+                                        <span className="font-semibold text-gray-900">Country:</span>{" "}
+                                        {me?.location?.trim() ? me.location : "Not added yet"}
+                                    </p>
+                                </div>
                             </button>
 
                             {sectionCards.map((section) => {
@@ -659,17 +791,23 @@ export default function ApplicantDashboard() {
                                         </div>
                                         <p className="text-sm text-gray-500 mt-2">{meta.hint}</p>
                                         {/* Show skill chips on skills card */}
-                                        {section.key === "skills" && section.complete && Array.isArray(section.data) && (
+                                        {section.key === "skills" && (
                                             <div className="mt-3 flex flex-wrap gap-1.5">
-                                                {(section.data as SkillOption[]).slice(0, 5).map((sk) => (
-                                                    <span key={sk.id} className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-medium">
-                                                        {sk.name}
-                                                    </span>
-                                                ))}
-                                                {(section.data as SkillOption[]).length > 5 && (
-                                                    <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">
-                                                        +{(section.data as SkillOption[]).length - 5} more
-                                                    </span>
+                                                {Array.isArray(section.data) && (section.data as SkillOption[]).length > 0 ? (
+                                                    <>
+                                                        {(section.data as SkillOption[]).slice(0, 5).map((sk) => (
+                                                            <span key={sk.id} className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-medium">
+                                                                {sk.name}
+                                                            </span>
+                                                        ))}
+                                                        {(section.data as SkillOption[]).length > 5 && (
+                                                            <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">
+                                                                +{(section.data as SkillOption[]).length - 5} more
+                                                            </span>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <span className="text-[11px] text-gray-500">No skills added yet</span>
                                                 )}
                                             </div>
                                         )}
@@ -808,7 +946,7 @@ export default function ApplicantDashboard() {
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Phone number</label>
                                 <div className="flex gap-2 items-center">
-                                    <div className="w-32 flex-shrink-0">
+                                    <div className="w-32 shrink-0">
                                         <SearchableDropdown
                                             label=""
                                             icon={<Phone className="w-3.5 h-3.5 text-gray-400" />}
@@ -822,10 +960,10 @@ export default function ApplicantDashboard() {
                                                 return (
                                                     <div className="flex-1 flex justify-between items-center overflow-hidden gap-1">
                                                         <span className="flex items-center gap-1.5 min-w-0">
-                                                            <span className="flex-shrink-0">{flag}</span>
+                                                            <span className="shrink-0">{flag}</span>
                                                             <span className="text-gray-700 font-medium truncate block">{opt.extra}</span>
                                                         </span>
-                                                        <span className="text-gray-400 text-[10px] font-mono flex-shrink-0 pl-1">{dial}</span>
+                                                        <span className="text-gray-400 text-[10px] font-mono shrink-0 pl-1">{dial}</span>
                                                     </div>
                                                 );
                                             }}

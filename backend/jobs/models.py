@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.core.validators import MinValueValidator, MaxValueValidator
 from resumes.models import Resume
 
 User = get_user_model()
@@ -107,8 +108,14 @@ class JobApplication(models.Model):
 
     resume = models.ForeignKey(
         Resume,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="applications_resume",
+        null=True,
+        blank=True,
+    )
+
+    score = models.FloatField(
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
         null=True,
         blank=True,
     )

@@ -66,6 +66,7 @@ class JobApplicationType(DjangoObjectType):
             "id",
             "job",
             "applicant",
+            "score",
             "status",
             "applied_at",
         )
@@ -306,8 +307,9 @@ class UpdateApplicationStatus(graphene.Mutation):
     class Arguments:
         application_id = graphene.Int(required=True)
         status = graphene.String(required=True)
+        score = graphene.Float()
 
-    def mutate(self, info, application_id, status):
+    def mutate(self, info, application_id, status, score=None):
         user = get_user(info)
         if not user:
             raise GraphQLError("Authentication required")
@@ -335,6 +337,10 @@ class UpdateApplicationStatus(graphene.Mutation):
 
         previous_status = application.status
         application.status = requested_status
+        if score is not None:
+            if score < 0 or score > 1:
+                raise GraphQLError("Score must be between 0 and 1")
+            application.score = score
         application.save()
 
         # Notify candidate only when final outcome status changes.

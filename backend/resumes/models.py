@@ -1,6 +1,4 @@
 from django.db import models
-from django.contrib.postgres.fields import ArrayField
-from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 
@@ -21,12 +19,6 @@ class Resume(models.Model):
         max_length=20,
         choices= STATUS_CHOICES.choices,
         default= STATUS_CHOICES.PENDING
-    )
-
-    score = models.FloatField(
-        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
-        null=True,
-        blank=True
     )
 
     applied_at = models.DateTimeField(auto_now_add=True)

@@ -37,7 +37,7 @@ class User(AbstractUser):
         "resumes.Resume",
         blank=True,
         null=True,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         related_name="primary_for_users",
     )
 

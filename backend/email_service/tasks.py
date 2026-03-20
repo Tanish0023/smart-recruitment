@@ -81,7 +81,8 @@ def _send_email(subject: str, html_message: str, message: str, user_email: str, 
 @shared_task(queue="email_service")
 def send_registration_thank_you_email(user_email: str, username: str) -> None:
     subject = "Welcome to Smart Recruitment"
-    dashboard_url = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:5173")
+    dashboard_url_base = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:5173")
+    dashboard_url = f"{dashboard_url_base}/applicant/dashboard?tab=applications"
     html_message = render_to_string(
         "email_service/registration_thank_you.html",
         {
@@ -120,7 +121,8 @@ def send_application_status_email(
     )
 
     subject = f"Application update: {job_title}"
-    dashboard_url = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:5173")
+    dashboard_url_base = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:5173")
+    dashboard_url = f"{dashboard_url_base}/applicant/dashboard?tab=applications"
     html_message = render_to_string(
         "email_service/application_status_update.html",
         {

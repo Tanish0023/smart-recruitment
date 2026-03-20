@@ -211,8 +211,8 @@ export const UPDATE_APPLICANT_PROFILE_SECTION = gql`
 `;
 
 export const UPLOAD_PRIMARY_RESUME = gql`
-  mutation UploadPrimaryResume($resume: Upload!) {
-    uploadPrimaryResume(resume: $resume) {
+  mutation UploadPrimaryResume($resume: Upload!, $updateBasicDetails: Boolean = true) {
+    uploadPrimaryResume(resume: $resume, updateBasicDetails: $updateBasicDetails) {
       user {
         id
         primaryResumeUrl
