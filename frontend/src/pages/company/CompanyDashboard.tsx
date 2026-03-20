@@ -3,7 +3,8 @@ import { useQuery, useMutation } from "@apollo/client/react";
 import {
     Briefcase, Plus, Pencil, Trash2, Users, ToggleLeft, ToggleRight,
     Loader2, CheckCircle2, CircleOff,
-    MapPin, DollarSign,
+    MapPin, DollarSign, Search,
+    X,
 } from "lucide-react";
 import { Formik, Form, Field, ErrorMessage } from "formik";
 import { z } from "zod";
@@ -17,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
     GET_COMPANY_JOBS, GET_JOB_APPLICANTS,
+    GET_ALL_SKILLS,
     CREATE_JOB, UPDATE_JOB, DELETE_JOB, UPDATE_APPLICATION_STATUS,
 } from "@/graphql/jobs";
 
@@ -24,7 +26,17 @@ import {
 interface Job {
     id: string; title: string; description: string;
     location?: string | null; salaryRange?: string | null;
+    minimumExperienceRequired: number;
+    skills: Skill[];
     isActive: boolean; createdAt: string;
+}
+interface Skill {
+    id: string;
+    name: string;
+    category?: {
+        id: string;
+        name: string;
+    } | null;
 }
 interface Applicant {
     id: string; status: string; appliedAt: string; resumeUrl: string;
@@ -79,6 +91,8 @@ const jobSchema = z.object({
     description: z.string().min(20, "Description must be at least 20 characters"),
     location: z.string().optional(),
     salaryRange: z.string().optional(),
+    minimumExperienceRequired: z.coerce.number().min(0, "Minimum experience must be 0 or greater"),
+    skillIds: z.array(z.string()).default([]),
 });
 
 type JobFormValues = z.infer<typeof jobSchema>;
@@ -97,17 +111,22 @@ const validateWithZod = (schema: z.ZodSchema) => (values: unknown) => {
 /* ─── JobForm ────────────────────────────────────────── */
 interface JobFormProps {
     initial?: Partial<JobFormValues>;
+    allSkills: Skill[];
     onSubmit: (v: JobFormValues) => void;
     loading: boolean;
     submitLabel?: string;
 }
 
-function JobForm({ initial, onSubmit, loading, submitLabel = "Save" }: JobFormProps) {
+function JobForm({ initial, allSkills, onSubmit, loading, submitLabel = "Save" }: JobFormProps) {
+    const [skillSearch, setSkillSearch] = useState("");
+
     const initialValues: JobFormValues = {
         title: initial?.title ?? "",
         description: initial?.description ?? "",
         location: initial?.location ?? "",
         salaryRange: initial?.salaryRange ?? "",
+        minimumExperienceRequired: initial?.minimumExperienceRequired ?? 0,
+        skillIds: initial?.skillIds ?? [],
     };
 
     return (
@@ -117,8 +136,28 @@ function JobForm({ initial, onSubmit, loading, submitLabel = "Save" }: JobFormPr
             onSubmit={onSubmit}
             enableReinitialize
         >
-            {({ isValid, dirty }) => (
-                <Form className="space-y-4">
+            {({ isValid, dirty, values, setFieldValue }) => {
+                const normalizedQuery = skillSearch.trim().toLowerCase();
+                const selectedSkillIds = new Set(values.skillIds);
+                const filteredSkills = allSkills.filter((skill) => {
+                    if (!normalizedQuery) {
+                        return true;
+                    }
+
+                    const haystack = `${skill.name} ${skill.category?.name ?? ""}`.toLowerCase();
+                    return haystack.includes(normalizedQuery);
+                });
+
+                const selectedSkills = filteredSkills
+                    .filter((skill) => selectedSkillIds.has(skill.id))
+                    .sort((a, b) => a.name.localeCompare(b.name));
+
+                const remainingSkills = filteredSkills
+                    .filter((skill) => !selectedSkillIds.has(skill.id))
+                    .sort((a, b) => a.name.localeCompare(b.name));
+
+                return (
+                <Form className="space-y-4 max-h-[80vh] overflow-scroll px-1">
                     <div>
                         <label className="text-sm font-medium text-gray-700 block mb-1">
                             Job Title <span className="text-red-500">*</span>
@@ -138,6 +177,98 @@ function JobForm({ initial, onSubmit, loading, submitLabel = "Save" }: JobFormPr
                             <Field as={Input} name="salaryRange" placeholder="e.g. ₹8L – ₹14L" />
                             <ErrorMessage name="salaryRange" component="p" className="text-xs text-red-500 mt-1" />
                         </div>
+                    </div>
+
+                    <div>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">
+                            Minimum Experience Required (years)
+                        </label>
+                        <Field as={Input} type="number" min="0" name="minimumExperienceRequired" />
+                        <ErrorMessage name="minimumExperienceRequired" component="p" className="text-xs text-red-500 mt-1" />
+                    </div>
+
+                    <div>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">
+                            Skills for Resume Shortlisting
+                        </label>
+                        <div className="relative mb-2">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <Input
+                                value={skillSearch}
+                                onChange={(e) => setSkillSearch(e.target.value)}
+                                placeholder="Search skills..."
+                                className="pl-9"
+                            />
+                        </div>
+
+                        <div className="max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 space-y-2">
+                            {filteredSkills.length === 0 && (
+                                <p className="text-xs text-gray-500 px-2 py-1">No skills found.</p>
+                            )}
+
+                            {selectedSkills.length > 0 && (
+                                <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-2">
+                                    <p className="text-xs font-semibold text-indigo-700 mb-1">Selected Skills</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                                        {selectedSkills.map((skill) => {
+                                            const checked = values.skillIds.includes(skill.id);
+                                            return (
+                                                <label
+                                                    key={skill.id}
+                                                    className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-indigo-50 cursor-pointer"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        onChange={(e) => {
+                                                            const next = e.target.checked
+                                                                ? [...values.skillIds, skill.id]
+                                                                : values.skillIds.filter((id) => id !== skill.id);
+                                                            setFieldValue("skillIds", next);
+                                                        }}
+                                                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                    />
+                                                    <span className="text-sm text-gray-700">{skill.name}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {remainingSkills.length > 0 && (
+                                <div className="rounded-lg border border-gray-100 p-2">
+                                    <p className="text-xs font-semibold text-gray-500 mb-1">All Skills</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                                        {remainingSkills.map((skill) => {
+                                            const checked = values.skillIds.includes(skill.id);
+                                            return (
+                                                <label
+                                                    key={skill.id}
+                                                    className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50 cursor-pointer"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        onChange={(e) => {
+                                                            const next = e.target.checked
+                                                                ? [...values.skillIds, skill.id]
+                                                                : values.skillIds.filter((id) => id !== skill.id);
+                                                            setFieldValue("skillIds", next);
+                                                        }}
+                                                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                    />
+                                                    <span className="text-sm text-gray-700">{skill.name}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <p className="text-xs text-gray-500 mt-1">Selected: {values.skillIds.length}</p>
+                        <p className="text-xs text-gray-500 mt-1">These skills are used internally for ranking resumes and are not shown to candidates.</p>
                     </div>
 
                     <div>
@@ -165,7 +296,8 @@ function JobForm({ initial, onSubmit, loading, submitLabel = "Save" }: JobFormPr
                         </Button>
                     </div>
                 </Form>
-            )}
+                );
+            }}
         </Formik>
     );
 }
@@ -193,6 +325,7 @@ export default function CompanyDashboard() {
     /* ── Queries ── */
     const { data: jobsData, loading: jobsLoading, refetch: refetchJobs } =
         useQuery<{ companyJobs: Job[] }>(GET_COMPANY_JOBS);
+    const { data: skillsData } = useQuery<{ allSkills: Skill[] }>(GET_ALL_SKILLS);
     const defaultSelectedJobId = selectedJobId ?? jobsData?.companyJobs?.[0]?.id ?? null;
     const { data: applicantsData, loading: applicantsLoading } =
         useQuery<{ jobApplicants: Applicant[] }>(GET_JOB_APPLICANTS, {
@@ -218,6 +351,7 @@ export default function CompanyDashboard() {
     });
 
     const jobs = jobsData?.companyJobs ?? [];
+    const allSkills = skillsData?.allSkills ?? [];
     const applicants = applicantsData?.jobApplicants ?? [];
 
     return (
@@ -312,6 +446,9 @@ export default function CompanyDashboard() {
                                                 </span>
                                             </div>
                                             <p className="text-sm text-gray-500 mt-2 line-clamp-2">{job.description}</p>
+                                            <p className="text-xs text-gray-500 mt-2">
+                                                Min Experience: <span className="font-medium">{job.minimumExperienceRequired} years</span>
+                                            </p>
                                         </div>
 
                                         {/* Actions */}
@@ -354,10 +491,11 @@ export default function CompanyDashboard() {
                     </TabsContent>
 
                     <TabsContent value="post" className="mt-0">
-                        <div className="max-w-2xl">
+                        <div>
                             <h1 className="text-2xl font-bold text-gray-900 mb-6">Post a New Job</h1>
                             <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
                                 <JobForm
+                                    allSkills={allSkills}
                                     loading={creating}
                                     submitLabel="Post Job"
                                     onSubmit={(v) =>
@@ -367,6 +505,8 @@ export default function CompanyDashboard() {
                                                 description: v.description,
                                                 location: v.location || null,
                                                 salaryRange: v.salaryRange || null,
+                                                minimumExperienceRequired: Number(v.minimumExperienceRequired || 0),
+                                                skills: (v.skillIds ?? []).map((skillId) => Number(skillId)),
                                             },
                                         })
                                     }
@@ -477,16 +617,24 @@ export default function CompanyDashboard() {
                 {/* ──────────── Edit Job Dialog ──────────── */}
                 <Dialog open={!!editJob} onOpenChange={(o) => !o && setEditJob(null)}>
                     <DialogContent className="max-w-xl">
-                        <DialogHeader>
+                        <DialogHeader className="flex items-center justify-between">
                             <DialogTitle>Edit Job</DialogTitle>
+
+                            <X
+                                onClick={() => setEditJob(null)}
+                                className="cursor-pointer"
+                            />
                         </DialogHeader>
                         {editJob && (
                             <JobForm
+                                allSkills={allSkills}
                                 initial={{
                                     title: editJob.title,
                                     description: editJob.description,
                                     location: editJob.location ?? undefined,
                                     salaryRange: editJob.salaryRange ?? undefined,
+                                    minimumExperienceRequired: editJob.minimumExperienceRequired,
+                                    skillIds: (editJob.skills ?? []).map((skill) => skill.id),
                                 }}
                                 loading={updating}
                                 submitLabel="Save Changes"
@@ -498,6 +646,8 @@ export default function CompanyDashboard() {
                                             description: v.description,
                                             location: v.location || null,
                                             salaryRange: v.salaryRange || null,
+                                            minimumExperienceRequired: Number(v.minimumExperienceRequired || 0),
+                                            skills: (v.skillIds ?? []).map((skillId) => Number(skillId)),
                                         },
                                     })
                                 }

@@ -8,7 +8,23 @@ export const LOGIN_APPLICANT = gql`
         id
         username
         email
+        firstName
+        lastName
         isRecruiter
+        phone
+        location
+
+        skills {
+          id
+          name
+        }
+
+        onboardingCompletedAt
+        primaryResumeUrl
+        profileCompletion
+        profileSections
+        canApply
+        nudgeMessages
       }
     }
   }
@@ -25,7 +41,23 @@ export const LOGIN_COMPANY = gql`
         id
         username
         email
+        firstName
+        lastName
         isRecruiter
+        phone
+        location
+
+        skills {
+          id
+          name
+        }
+
+        onboardingCompletedAt
+        primaryResumeUrl
+        profileCompletion
+        profileSections
+        canApply
+        nudgeMessages
         company {
           id
           name
@@ -54,7 +86,23 @@ export const REGISTER_USER = gql`
         id
         username
         email
+        firstName
+        lastName
         isRecruiter
+        phone
+        location
+
+        skills {
+          id
+          name
+        }
+
+        onboardingCompletedAt
+        primaryResumeUrl
+        profileCompletion
+        profileSections
+        canApply
+        nudgeMessages
       }
     }
   }
@@ -87,10 +135,91 @@ export const GET_ME = gql`
       id
       username
       email
+      firstName
+      lastName
       isRecruiter
+      phone
+      location
+
+      skills {
+        id
+        name
+      }
+
+      onboardingCompletedAt
+      primaryResumeUrl
+      profileCompletion
+      profileSections
+      canApply
+      nudgeMessages
       company {
         id
         name
+      }
+    }
+  }
+`;
+
+export const COMPLETE_APPLICANT_ONBOARDING = gql`
+  mutation CompleteApplicantOnboarding(
+    $firstName: String!
+    $lastName: String!
+    $phone: String!
+    $location: String!
+
+  ) {
+    completeApplicantOnboarding(
+      firstName: $firstName
+      lastName: $lastName
+      phone: $phone
+      location: $location
+
+    ) {
+      user {
+        id
+        firstName
+        lastName
+        phone
+        location
+
+        profileCompletion
+        profileSections
+        canApply
+        nudgeMessages
+      }
+    }
+  }
+`;
+
+export const UPDATE_APPLICANT_PROFILE_SECTION = gql`
+  mutation UpdateApplicantProfileSection($section: String!, $items: GenericScalar!) {
+    updateApplicantProfileSection(section: $section, items: $items) {
+      user {
+        id
+        skills {
+          id
+          name
+        }
+
+        profileCompletion
+        profileSections
+        canApply
+        nudgeMessages
+      }
+    }
+  }
+`;
+
+export const UPLOAD_PRIMARY_RESUME = gql`
+  mutation UploadPrimaryResume($resume: Upload!, $updateBasicDetails: Boolean = true) {
+    uploadPrimaryResume(resume: $resume, updateBasicDetails: $updateBasicDetails) {
+      user {
+        id
+        primaryResumeUrl
+        profileCompletion
+        profileSections
+        canApply
+        nudgeMessages
       }
     }
   }

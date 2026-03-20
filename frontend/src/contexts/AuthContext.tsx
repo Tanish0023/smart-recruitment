@@ -11,6 +11,21 @@ interface UserInfo {
     username: string;
     email: string;
     isRecruiter: boolean;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    location?: string;
+    skills?: unknown[];
+    education?: unknown[];
+    experience?: unknown[];
+    projects?: unknown[];
+    links?: unknown[];
+    onboardingCompletedAt?: string | null;
+    primaryResumeUrl?: string | null;
+    profileCompletion?: number;
+    profileSections?: Record<string, boolean>;
+    canApply?: boolean;
+    nudgeMessages?: string[];
     company?: { id: string; name: string } | null;
 }
 

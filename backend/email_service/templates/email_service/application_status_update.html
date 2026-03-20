@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Application Status Update</title>
+  </head>
+
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      color: #0f172a;
+    "
+  >
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center" style="padding: 40px 16px; text-align: center">
+          <table
+            role="presentation"
+            width="620"
+            cellpadding="0"
+            cellspacing="0"
+            style="
+              width: 100%;
+              max-width: 620px;
+              background: #ffffff;
+              border-radius: 16px;
+              overflow: hidden;
+              box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            "
+          >
+            <!-- HEADER -->
+            <tr>
+              <td
+                style="
+                  padding: 28px;
+                  text-align: center;
+                  background: #0f172a;
+                "
+              >
+                <h2 style="margin: 0; color: #ffffff; font-weight: 600">
+                  Smart Recruitment
+                </h2>
+              </td>
+            </tr>
+
+            <!-- STATUS BADGE -->
+            <tr>
+              <td align="center" style="padding: 24px 20px 10px">
+                {% if is_positive %}
+                <span
+                  style="
+                    background: #dcfce7;
+                    color: #166534;
+                    padding: 6px 14px;
+                    font-size: 12px;
+                    font-weight: 700;
+                    border-radius: 999px;
+                    display: inline-block;
+                  "
+                >
+                  ✔ Selected
+                </span>
+                {% else %}
+                <span
+                  style="
+                    background: #fee2e2;
+                    color: #991b1b;
+                    padding: 6px 14px;
+                    font-size: 12px;
+                    font-weight: 700;
+                    border-radius: 999px;
+                    display: inline-block;
+                  "
+                >
+                  ✖ Rejected
+                </span>
+                {% endif %}
+              </td>
+            </tr>
+
+            <!-- TITLE -->
+            <tr>
+              <td style="padding: 10px 28px 0; text-align: center">
+                <h1
+                  style="
+                    margin: 0;
+                    font-size: 24px;
+                    font-weight: 700;
+                    color: #0f172a;
+                  "
+                >
+                  Hey {{ username }},
+                </h1>
+
+                <p
+                  style="
+                    margin: 10px 0 0;
+                    font-size: 15px;
+                    color: #475569;
+                  "
+                >
+                  Your application status has been updated
+                </p>
+              </td>
+            </tr>
+
+            <!-- JOB CARD -->
+            <tr>
+              <td style="padding: 24px 28px">
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  style="
+                    background: #f8fafc;
+                    border-radius: 12px;
+                    padding: 18px;
+                  "
+                >
+                  <tr>
+                    <td style="font-size: 14px; color: #64748b">
+                      POSITION
+                    </td>
+                  </tr>
+                  <tr>
+                    <td
+                      style="
+                        font-size: 18px;
+                        font-weight: 600;
+                        color: #0f172a;
+                        padding-top: 4px;
+                      "
+                    >
+                      {{ job_title }}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- MESSAGE -->
+            <tr>
+              <td style="padding: 0 28px 10px; text-align: center">
+                <p
+                  style="
+                    margin: 0;
+                    font-size: 15px;
+                    line-height: 1.6;
+                    color: #475569;
+                  "
+                >
+                  {{ status_message }}
+                </p>
+              </td>
+            </tr>
+
+            <!-- CTA -->
+            <tr>
+              <td align="center" style="padding: 24px 28px 30px">
+                <a
+                  href="{{ dashboard_url }}"
+                  style="
+                    background: #2563eb;
+                    color: #ffffff;
+                    padding: 12px 22px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    text-decoration: none;
+                    border-radius: 8px;
+                    display: inline-block;
+                  "
+                >
+                  View Dashboard →
+                </a>
+              </td>
+            </tr>
+
+            <!-- FOOTER -->
+            <tr>
+              <td
+                style="
+                  padding: 20px;
+                  background: #f8fafc;
+                  text-align: center;
+                  border-top: 1px solid #e2e8f0;
+                "
+              >
+                <p style="margin: 0; font-size: 12px; color: #64748b">
+                  This is an automated message. Please do not reply.
+                </p>
+
+                <p
+                  style="
+                    margin: 6px 0 0;
+                    font-size: 12px;
+                    color: #94a3b8;
+                  "
+                >
+                  © {{ current_year }} Smart Recruitment
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

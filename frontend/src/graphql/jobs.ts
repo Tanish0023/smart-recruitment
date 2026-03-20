@@ -12,6 +12,7 @@ export const GET_ALL_JOBS = gql`
       description
       location
       salaryRange
+      minimumExperienceRequired
       createdAt
       company {
         id
@@ -29,6 +30,7 @@ export const GET_JOB_DETAIL = gql`
       description
       location
       salaryRange
+      minimumExperienceRequired
       createdAt
       updatedAt
       isActive
@@ -53,10 +55,32 @@ export const GET_COMPANY_JOBS = gql`
       description
       location
       salaryRange
+      minimumExperienceRequired
       isActive
       createdAt
       updatedAt
+      skills {
+        id
+        name
+        category {
+          id
+          name
+        }
+      }
       company {
+        id
+        name
+      }
+    }
+  }
+`;
+
+export const GET_ALL_SKILLS = gql`
+  query GetAllSkills {
+    allSkills {
+      id
+      name
+      category {
         id
         name
       }
@@ -110,12 +134,16 @@ export const CREATE_JOB = gql`
     $description: String!
     $location: String
     $salaryRange: String
+    $minimumExperienceRequired: Int
+    $skills: [Int!]
   ) {
     createJob(
       title: $title
       description: $description
       location: $location
       salaryRange: $salaryRange
+      minimumExperienceRequired: $minimumExperienceRequired
+      skills: $skills
     ) {
       job {
         id
@@ -123,6 +151,7 @@ export const CREATE_JOB = gql`
         description
         location
         salaryRange
+        minimumExperienceRequired
         isActive
         createdAt
       }
@@ -137,7 +166,9 @@ export const UPDATE_JOB = gql`
     $description: String
     $location: String
     $salaryRange: String
+    $minimumExperienceRequired: Int
     $isActive: Boolean
+    $skills: [Int!]
   ) {
     updateJob(
       jobId: $jobId
@@ -145,7 +176,9 @@ export const UPDATE_JOB = gql`
       description: $description
       location: $location
       salaryRange: $salaryRange
+      minimumExperienceRequired: $minimumExperienceRequired
       isActive: $isActive
+      skills: $skills
     ) {
       job {
         id
@@ -153,8 +186,13 @@ export const UPDATE_JOB = gql`
         description
         location
         salaryRange
+        minimumExperienceRequired
         isActive
         updatedAt
+        skills {
+          id
+          name
+        }
       }
     }
   }
@@ -169,8 +207,8 @@ export const DELETE_JOB = gql`
 `;
 
 export const APPLY_TO_JOB = gql`
-  mutation ApplyToJob($jobId: Int!, $resume: Upload!) {
-    applyToJob(jobId: $jobId, resume: $resume) {
+  mutation ApplyToJob($jobId: Int!) {
+    applyToJob(jobId: $jobId) {
       application {
         id
         status

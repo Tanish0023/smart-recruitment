@@ -7,6 +7,7 @@ interface Job {
     description: string;
     location?: string | null;
     salaryRange?: string | null;
+    minimumExperienceRequired?: number | null;
     createdAt: string;
     company: { id: string; name: string };
 }
@@ -68,6 +69,9 @@ export function JobCard({ job, actionSlot, compact = false }: JobCardProps) {
                 <span className="inline-flex items-center gap-1 text-xs font-medium bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">
                     <Calendar className="w-3 h-3" />
                     {dateStr}
+                </span>
+                <span className="inline-flex items-center gap-1 text-xs font-medium bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full">
+                    Experience: {job.minimumExperienceRequired ?? 0}+ yrs
                 </span>
             </div>
 
