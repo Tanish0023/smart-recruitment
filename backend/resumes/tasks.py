@@ -2,6 +2,8 @@ from celery import shared_task
 from .models import Resume
 from jobs.models import Skill
 from django.utils import timezone
+from io import BytesIO
+from urllib.request import urlopen
 
 import re
 import json
@@ -182,8 +184,21 @@ def to_json_safe(value):
     return str(value)
 
 
-def extract_text_from_pdf(path):
-    return extract_text(path)
+def extract_text_from_pdf(file_field):
+    # Support both local filesystem and remote storage backends (e.g., Cloudinary/S3).
+    try:
+        return extract_text(file_field.path)
+    except (NotImplementedError, AttributeError, OSError):
+        try:
+            file_field.open("rb")
+            try:
+                return extract_text(BytesIO(file_field.read()))
+            finally:
+                file_field.close()
+        except OSError:
+            # Final fallback: fetch through resolved storage URL (works with Cloudinary raw assets).
+            with urlopen(file_field.url, timeout=30) as response:
+                return extract_text(BytesIO(response.read()))
 
 
 def clean_text(text):
@@ -492,7 +507,10 @@ def resume_parsing(resume_id, user_id=None, update_basic_details=True):
     resume.save(update_fields=["status"])
 
     try:
-        raw_text = extract_text_from_pdf(resume.file.path)
+        if not resume.file:
+            raise ValueError("Resume file is missing.")
+
+        raw_text = extract_text_from_pdf(resume.file)
         text = clean_text(raw_text)
 
         sections = extract_sections(text)
