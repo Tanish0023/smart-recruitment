@@ -14,6 +14,7 @@ from pathlib import Path
 import os
 from datetime import timedelta
 from kombu import Queue
+import dj_database_url
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.celery import CeleryIntegration
@@ -22,28 +23,43 @@ from sentry_sdk.integrations.celery import CeleryIntegration
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
+def get_bool_env(name, default=False):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def get_list_env(name, default=None):
+    value = os.getenv(name, "")
+    if not value.strip():
+        return default or []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
 sentry_dsn = os.environ.get("SENTRY_DSN")
 
-sentry_sdk.init(
-    dsn=sentry_dsn,
-    integrations=[
-        DjangoIntegration(),
-        CeleryIntegration(),
-    ],
-    send_default_pii=True,
-    traces_sample_rate=1.0,
-)
+if sentry_dsn:
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        integrations=[
+            DjangoIntegration(),
+            CeleryIntegration(),
+        ],
+        send_default_pii=True,
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+    )
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-=9_^33tab51$afwu)@en-w8$uini)o1_69$4qtgcu4%gwc(+bj"
+SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-dev-only")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG", True)
+DEBUG = get_bool_env("DEBUG", default=False)
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = get_list_env("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 
 # Application definition
@@ -64,6 +80,12 @@ INSTALLED_APPS = [
     "email_service",
     "corsheaders",
 ]
+
+if os.getenv("CLOUDINARY_URL"):
+    INSTALLED_APPS += [
+        "cloudinary",
+        "cloudinary_storage",
+    ]
 
 GRAPHENE = {
     "SCHEMA": "core.schema.schema",
@@ -108,7 +130,11 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = get_bool_env("CORS_ALLOW_ALL_ORIGINS", default=False)
+CORS_ALLOWED_ORIGINS = get_list_env(
+    "CORS_ALLOWED_ORIGINS",
+    default=["http://localhost:5173", "http://127.0.0.1:5173"],
+)
 CORS_ALLOW_HEADERS = [
     "accept",
     "accept-encoding",
@@ -122,10 +148,10 @@ CORS_ALLOW_HEADERS = [
     "apollo-require-preflight",
 ]
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+CSRF_TRUSTED_ORIGINS = get_list_env(
+    "CSRF_TRUSTED_ORIGINS",
+    default=["http://localhost:5173", "http://127.0.0.1:5173"],
+)
 
 ROOT_URLCONF = "core.urls"
 
@@ -150,11 +176,7 @@ WSGI_APPLICATION = "core.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DB_NAME = os.getenv("POSTGRES_DB", "recruitment_db")
-DB_USER = os.getenv("POSTGRES_USER", "postgres")
-DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
-DB_HOST = os.getenv("POSTGRES_HOST", "localhost")
-DB_PORT = os.getenv("POSTGRES_PORT", "5432")
+database_url = os.getenv("DATABASE_URL") or os.getenv("NEON_POSTGRES_URL")
 
 if database_url:
     DATABASES = {
@@ -169,7 +191,7 @@ else:
     DB_USER = os.getenv("POSTGRES_USER", "postgres")
     DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
     DB_HOST = os.getenv("POSTGRES_HOST", "localhost")
-    DB_PORT = os.getenv("POSTGRES_PORT", "6400")
+    DB_PORT = os.getenv("POSTGRES_PORT", "5432")
 
     DATABASES = {
         "default": {
@@ -181,7 +203,6 @@ else:
             "PORT": DB_PORT,
         }
     }
-}
 
 MAILTRAP_API_TOKEN = os.getenv("MAILTRAP_API_TOKEN", "")
 MAILTRAP_API_URL = os.getenv("MAILTRAP_API_URL", "https://send.api.mailtrap.io/api/send")
@@ -240,8 +261,12 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-CELERY_BROKER_URL = "redis://redis:6379/0"
-CELERY_RESULT_BACKEND = "redis://redis:6379/1"
+if os.getenv("CLOUDINARY_URL"):
+    DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+
+redis_url = os.getenv("REDIS_URL")
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", redis_url or "redis://redis:6379/0")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", redis_url or "redis://redis:6379/1")
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_TASK_DEFAULT_QUEUE = "default"
@@ -254,3 +279,8 @@ CELERY_TASK_ROUTES = {
     "resumes.tasks.resume_parsing": {"queue": "resume_parsing"},
     "email_service.tasks.send_registration_thank_you_email": {"queue": "email_service"},
 }
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = get_bool_env("SECURE_SSL_REDIRECT", default=not DEBUG)
+SESSION_COOKIE_SECURE = get_bool_env("SESSION_COOKIE_SECURE", default=not DEBUG)
+CSRF_COOKIE_SECURE = get_bool_env("CSRF_COOKIE_SECURE", default=not DEBUG)
