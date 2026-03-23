@@ -10,6 +10,10 @@ export const GET_ALL_JOBS = gql`
       id
       title
       description
+      categories {
+        id
+        name
+      }
       location
       salaryRange
       minimumExperienceRequired
@@ -28,6 +32,10 @@ export const GET_JOB_DETAIL = gql`
       id
       title
       description
+      categories {
+        id
+        name
+      }
       location
       salaryRange
       minimumExperienceRequired
@@ -53,6 +61,10 @@ export const GET_COMPANY_JOBS = gql`
       id
       title
       description
+      categories {
+        id
+        name
+      }
       location
       salaryRange
       minimumExperienceRequired
@@ -84,6 +96,16 @@ export const GET_ALL_SKILLS = gql`
         id
         name
       }
+    }
+  }
+`;
+
+export const GET_ALL_CATEGORIES = gql`
+  query GetAllCategories {
+    allCategories {
+      id
+      name
+      description
     }
   }
 `;
@@ -136,6 +158,7 @@ export const CREATE_JOB = gql`
     $salaryRange: String
     $minimumExperienceRequired: Int
     $skills: [Int!]
+    $categories: [Int!]
   ) {
     createJob(
       title: $title
@@ -144,6 +167,7 @@ export const CREATE_JOB = gql`
       salaryRange: $salaryRange
       minimumExperienceRequired: $minimumExperienceRequired
       skills: $skills
+      categories: $categories
     ) {
       job {
         id
@@ -154,6 +178,10 @@ export const CREATE_JOB = gql`
         minimumExperienceRequired
         isActive
         createdAt
+        categories {
+          id
+          name
+        }
       }
     }
   }
@@ -169,6 +197,7 @@ export const UPDATE_JOB = gql`
     $minimumExperienceRequired: Int
     $isActive: Boolean
     $skills: [Int!]
+    $categories: [Int!]
   ) {
     updateJob(
       jobId: $jobId
@@ -179,6 +208,7 @@ export const UPDATE_JOB = gql`
       minimumExperienceRequired: $minimumExperienceRequired
       isActive: $isActive
       skills: $skills
+      categories: $categories
     ) {
       job {
         id
@@ -190,6 +220,10 @@ export const UPDATE_JOB = gql`
         isActive
         updatedAt
         skills {
+          id
+          name
+        }
+        categories {
           id
           name
         }

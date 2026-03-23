@@ -19,8 +19,10 @@ class SkillAdmin(admin.ModelAdmin):
 
 @admin.register(Job)
 class JobAdmin(admin.ModelAdmin):
-    list_display = ("id",)
-    # search_fields = ("name",)
+    list_display = ("id", "title", "company", "is_active", "created_at")
+    search_fields = ("title", "company__name")
+    list_filter = ("is_active", "company")
+    filter_horizontal = ("skills", "categories")
 
 
 @admin.register(JobApplication)
