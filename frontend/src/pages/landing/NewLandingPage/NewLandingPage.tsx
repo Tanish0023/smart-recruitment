@@ -6,7 +6,7 @@ import Footer from './Footer';
 
 const Landing = () => {
   return (
-    <div className="min-h-screen bg-white text-gray-900 font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-white dark:bg-slate-950 text-gray-900 dark:text-slate-100 font-sans selection:bg-indigo-500 selection:text-white transition-colors">
       <Navbar />
       <main>
         <Hero />

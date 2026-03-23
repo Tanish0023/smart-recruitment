@@ -34,7 +34,7 @@ function DialogContent({ className, children, ...props }: React.HTMLAttributes<H
     return (
         <div
             className={cn(
-                "bg-white rounded-2xl shadow-xl border border-gray-200 p-6 w-full max-w-lg mx-auto animate-in fade-in slide-in-from-bottom-4 duration-200",
+                "bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 p-6 w-full max-w-lg mx-auto animate-in fade-in slide-in-from-bottom-4 duration-200",
                 className
             )}
             {...props}
@@ -49,16 +49,16 @@ function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
 }
 
 function DialogTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-    return <h2 className={cn("text-xl font-bold text-gray-900", className)} {...props} />
+    return <h2 className={cn("text-xl font-bold text-gray-900 dark:text-slate-100", className)} {...props} />
 }
 
 function DialogDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-    return <p className={cn("text-sm text-gray-500 mt-1", className)} {...props} />
+    return <p className={cn("text-sm text-gray-500 dark:text-slate-300 mt-1", className)} {...props} />
 }
 
 function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
     return (
-        <div className={cn("flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100", className)} {...props} />
+        <div className={cn("flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-slate-700", className)} {...props} />
     )
 }
 
@@ -66,7 +66,7 @@ function DialogClose({ onClick }: { onClick?: () => void }) {
     return (
         <button
             onClick={onClick}
-            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
         >
             <X className="w-5 h-5" />
         </button>

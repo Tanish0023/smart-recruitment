@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Rocket,
@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface NavItem {
     label: string;
@@ -40,7 +41,7 @@ export function DashboardLayout({ navItems, children, title, hideHeader, sidebar
         : "??";
 
     return (
-        <div className="min-h-screen bg-gray-50 flex">
+        <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex transition-colors">
             {/* Sidebar */}
             <AnimatePresence initial={false}>
                 {sidebarOpen && (
@@ -50,28 +51,29 @@ export function DashboardLayout({ navItems, children, title, hideHeader, sidebar
                         animate={{ width: 256, opacity: 1 }}
                         exit={{ width: 0, opacity: 0 }}
                         transition={{ duration: 0.25, ease: "easeInOut" }}
-                        className="overflow-hidden flex-shrink-0 bg-white border-r border-gray-200 flex flex-col z-30 h-screen sticky top-0"
+                        className="overflow-hidden shrink-0 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 flex flex-col z-30 h-screen sticky top-0"
                     >
                         {/* Logo & Toggle */}
-                        <div className="flex items-center justify-between gap-2 px-5 py-5 border-b border-gray-100">
-                            <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between gap-2 px-5 py-5 border-b border-gray-100 dark:border-slate-800">
+                            <Link to="/" className="flex items-center gap-2">
                                 <div className="bg-indigo-600 text-white p-2 rounded-xl">
                                     <Rocket size={20} />
                                 </div>
-                                <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-purple-600 whitespace-nowrap">
+                                <span className="text-lg font-bold bg-clip-text text-transparent bg-linear-to-r from-indigo-700 to-purple-600 whitespace-nowrap">
                                     Smart Recruit
                                 </span>
-                            </div>
+                            </Link>
+                            <ThemeToggle />
                             <button
                                 onClick={() => setSidebarOpen(false)}
-                                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors lg:hidden"
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors lg:hidden"
                             >
                                 <X size={18} />
                             </button>
                             <button
                                 onClick={() => setSidebarOpen(false)}
                                 title="Collapse Sidebar"
-                                className="hidden lg:block text-gray-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+                                className="hidden lg:block text-gray-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
                             >
                                 <Menu size={18} />
                             </button>
@@ -100,14 +102,14 @@ export function DashboardLayout({ navItems, children, title, hideHeader, sidebar
                         </nav>
 
                         {/* User footer */}
-                        <div className="px-3 py-4 border-t border-gray-100">
+                        <div className="px-3 py-4 border-t border-gray-100 dark:border-slate-800">
                             <div className="flex items-center gap-3 px-3 py-2 mb-2">
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
                                     {initials}
                                 </div>
                                 <div className="overflow-hidden">
-                                    <p className="text-sm font-semibold text-gray-800 truncate">{user?.username}</p>
-                                    <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                                    <p className="text-sm font-semibold text-gray-800 dark:text-slate-100 truncate">{user?.username}</p>
+                                    <p className="text-xs text-gray-500 dark:text-slate-400 truncate">{user?.email}</p>
                                 </div>
                             </div>
                             <Button
@@ -128,47 +130,53 @@ export function DashboardLayout({ navItems, children, title, hideHeader, sidebar
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Floating Expand Button (when header is hidden & sidebar closed) */}
                 {hideHeader && !sidebarOpen && (
-                    <button
-                        onClick={() => setSidebarOpen(true)}
-                        className="fixed top-4 left-4 z-40 bg-white border border-gray-200 text-gray-500 hover:text-indigo-600 p-2 rounded-xl shadow-lg hover:shadow-indigo-100 transition-all active:scale-95"
-                    >
-                        <Menu size={20} />
-                    </button>
+                    <>
+                        <button
+                            onClick={() => setSidebarOpen(true)}
+                            className="fixed top-4 left-4 z-40 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-slate-300 hover:text-indigo-600 p-2 rounded-xl shadow-lg hover:shadow-indigo-100 transition-all active:scale-95"
+                        >
+                            <Menu size={20} />
+                        </button>
+                        <div className="fixed top-4 right-4 z-40 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 p-1 rounded-xl shadow-lg">
+                            <ThemeToggle />
+                        </div>
+                    </>
                 )}
 
                 {/* Top bar */}
                 {!hideHeader && (
-                    <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-4 sticky top-0 z-20">
+                    <header className="h-14 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 flex items-center px-4 gap-4 sticky top-0 z-20">
                         <button
                             onClick={() => setSidebarOpen((v) => !v)}
-                            className="text-gray-500 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                            className="text-gray-500 dark:text-slate-300 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
                         >
                             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
                         </button>
 
                         {!sidebarOpen && (
-                            <div className="flex items-center gap-2">
+                            <Link to="/" className="flex items-center gap-2">
                                 <div className="bg-indigo-600 text-white p-1.5 rounded-lg">
                                     <Rocket size={16} />
                                 </div>
                                 <span className="text-sm font-bold text-indigo-700">Smart Recruit</span>
-                            </div>
+                            </Link>
                         )}
 
                         {title && (
-                            <div className="flex items-center gap-1 text-sm text-gray-500">
+                            <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-slate-400">
                                 <ChevronRight size={14} />
-                                <span className="font-medium text-gray-700">{title}</span>
+                                <span className="font-medium text-gray-700 dark:text-slate-200">{title}</span>
                             </div>
                         )}
 
                         <div className="ml-auto flex items-center gap-3">
+                            <ThemeToggle />
                             {user?.company && (
-                                <span className="hidden sm:block text-xs font-medium bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full">
+                                <span className="hidden sm:block text-xs font-medium bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-200 px-3 py-1 rounded-full">
                                     {user.company.name}
                                 </span>
                             )}
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
+                            <div className="w-8 h-8 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
                                 {initials}
                             </div>
                         </div>
