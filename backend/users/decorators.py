@@ -13,11 +13,22 @@ def permission_denied(message="Permission denied"):
     raise GraphQLError(message)
 
 
+def ensure_verified_user(user):
+    if not user:
+        permission_denied("Authentication required")
+    if (user.is_staff or user.is_superuser):
+        return
+    if not getattr(user, "is_verified", False):
+        permission_denied("Account not verified. Please verify OTP to continue")
+
+
 def login_required(func):
     @wraps(func)
     def wrapper(self, info, *args, **kwargs):
-        if not get_user(info):
+        user = get_user(info)
+        if not user:
             permission_denied("Authentication required")
+        ensure_verified_user(user)
         return func(self, info, *args, **kwargs)
     return wrapper
 
@@ -41,6 +52,7 @@ def recruiter_required(func):
 
         if not user:
             permission_denied("Authentication required")
+        ensure_verified_user(user)
 
         if not user.is_recruiter:
             permission_denied("Recruiter access required")
@@ -57,6 +69,7 @@ def user_required(func):
 
         if not user:
             permission_denied("Authentication required")
+        ensure_verified_user(user)
 
         if user.is_recruiter:
             permission_denied("Applicant access required")
@@ -68,8 +81,10 @@ def user_required(func):
 def user_or_recruiter_required(func):
     @wraps(func)
     def wrapper(self, info, *args, **kwargs):
-        if not get_user(info):
+        user = get_user(info)
+        if not user:
             permission_denied("Login required")
+        ensure_verified_user(user)
         return func(self, info, *args, **kwargs)
     return wrapper
 
@@ -81,6 +96,7 @@ def company_required(func):
 
         if not user:
             permission_denied("Authentication required")
+        ensure_verified_user(user)
 
         if not getattr(user, "company", None):
             permission_denied("User must belong to a company")
@@ -97,6 +113,7 @@ def recruiter_with_company_required(func):
 
         if not user:
             permission_denied("Authentication required")
+        ensure_verified_user(user)
 
         if not user.is_recruiter:
             permission_denied("Recruiter access required")

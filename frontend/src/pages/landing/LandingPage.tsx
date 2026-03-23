@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Briefcase, Building2, Target, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -49,7 +49,7 @@ export default function LandingPage() {
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(120,58,255,0.05)_0%,transparent_70%)] pointer-events-none" />
 
             {/* Logo */}
-            <div className="flex items-center gap-3 mb-14 relative z-10">
+            <Link to="/" className="flex items-center gap-3 mb-14 relative z-10">
                 <div className="w-12 h-12 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-violet-500/30">
                     <Target className="w-6 h-6 text-white" />
                 </div>
@@ -57,7 +57,7 @@ export default function LandingPage() {
                     <h1 className="text-2xl font-extrabold text-white tracking-tight">SmartRecruit</h1>
                     <p className="text-xs text-gray-500">AI-Powered Recruitment</p>
                 </div>
-            </div>
+            </Link>
 
             {/* Heading */}
             <div className="text-center mb-12 relative z-10">

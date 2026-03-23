@@ -5,6 +5,7 @@ import { Search, MapPin, Briefcase, SlidersHorizontal, Rocket, ArrowRight, Loade
 import { JobCard } from "@/components/JobCard";
 import { GET_ALL_JOBS, GET_MY_APPLICATIONS } from "@/graphql/jobs";
 import { useAuth } from "@/contexts/AuthContext";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface Job {
     id: string;
@@ -66,30 +67,31 @@ export default function JobsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50">
+        <div className="min-h-screen bg-linear-to-br from-slate-50 via-white to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 transition-colors">
             {/* Navbar */}
-            <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200">
+            <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/85 backdrop-blur-md border-b border-gray-200 dark:border-slate-800">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
                     <Link to="/" className="flex items-center gap-2">
                         <div className="bg-indigo-600 text-white p-2 rounded-xl">
                             <Rocket size={18} />
                         </div>
-                        <span className="text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-purple-600">
+                        <span className="text-base font-bold bg-clip-text text-transparent bg-linear-to-r from-indigo-700 to-purple-600">
                             Smart Recruit
                         </span>
                     </Link>
                     <div className="flex items-center gap-3">
+                        <ThemeToggle />
                         {isAuthenticated ? (
                             <button
                                 onClick={handleDashboard}
-                                className="flex items-center gap-1.5 text-sm font-medium text-indigo-700 hover:text-indigo-900 transition-colors"
+                                className="flex items-center gap-1.5 text-sm font-medium text-indigo-700 dark:text-indigo-300 hover:text-indigo-900 dark:hover:text-indigo-200 transition-colors"
                             >
                                 Dashboard
                                 <ArrowRight className="w-4 h-4" />
                             </button>
                         ) : (
                             <>
-                                <Link to="/applicant/login" className="text-sm font-medium text-gray-600 hover:text-indigo-700">
+                                <Link to="/applicant/login" className="text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-indigo-700 dark:hover:text-indigo-300">
                                     Sign In
                                 </Link>
                                 <Link
@@ -106,37 +108,37 @@ export default function JobsPage() {
 
             {/* Hero */}
             <section className="py-16 text-center px-4">
-                <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight tracking-tight">
+                <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-slate-100 leading-tight tracking-tight">
                     Find Your Next{" "}
-                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+                    <span className="bg-clip-text text-transparent bg-linear-to-r from-indigo-600 to-purple-600">
                         Opportunity
                     </span>
                 </h1>
-                <p className="mt-4 text-gray-500 text-lg max-w-xl mx-auto">
+                <p className="mt-4 text-gray-500 dark:text-slate-300 text-lg max-w-xl mx-auto">
                     Browse {jobs.length} active job openings from top companies.
                 </p>
 
                 {/* Search bar */}
                 <div className="mt-8 max-w-2xl mx-auto flex gap-3 flex-col sm:flex-row">
                     <div className="relative flex-1">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-slate-500" />
                         <input
                             type="text"
                             placeholder="Search jobs, companies, skills…"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-11 pr-4 py-3.5 text-sm rounded-2xl border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                            className="w-full pl-11 pr-4 py-3.5 text-sm rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100"
                         />
                     </div>
                     <div className="relative">
-                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500" />
                         <input
                             type="text"
                             placeholder="Location"
                             value={locationFilter}
                             onChange={(e) => setLocationFilter(e.target.value)}
                             list="locations"
-                            className="w-full sm:w-44 pl-10 pr-4 py-3.5 text-sm rounded-2xl border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                            className="w-full sm:w-44 pl-10 pr-4 py-3.5 text-sm rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100"
                         />
                         <datalist id="locations">
                             {uniqueLocations.map((l) => <option key={l} value={l} />)}
@@ -148,10 +150,10 @@ export default function JobsPage() {
             {/* Content */}
             <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-16">
                 {/* Stats row */}
-                <div className="flex items-center gap-3 mb-6 text-sm text-gray-500">
+                <div className="flex items-center gap-3 mb-6 text-sm text-gray-500 dark:text-slate-400">
                     <SlidersHorizontal className="w-4 h-4" />
                     <span>
-                        Showing <strong className="text-gray-800">{filtered.length}</strong> available job{filtered.length !== 1 ? "s" : ""}
+                        Showing <strong className="text-gray-800 dark:text-slate-200">{filtered.length}</strong> available job{filtered.length !== 1 ? "s" : ""}
                     </span>
                     {(search || locationFilter) && (
                         <button
@@ -164,7 +166,7 @@ export default function JobsPage() {
                 </div>
 
                 {loading && (
-                    <div className="flex items-center justify-center py-24 gap-3 text-gray-400">
+                    <div className="flex items-center justify-center py-24 gap-3 text-gray-400 dark:text-slate-400">
                         <Loader2 className="w-6 h-6 animate-spin" />
                         <span>Loading jobs…</span>
                     </div>
@@ -178,9 +180,9 @@ export default function JobsPage() {
                 )}
 
                 {!loading && !error && filtered.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-24 gap-4 text-gray-400">
-                        <Briefcase className="w-12 h-12 text-gray-300" />
-                        <p className="text-lg font-medium text-gray-500">No jobs found</p>
+                    <div className="flex flex-col items-center justify-center py-24 gap-4 text-gray-400 dark:text-slate-400">
+                        <Briefcase className="w-12 h-12 text-gray-300 dark:text-slate-600" />
+                        <p className="text-lg font-medium text-gray-500 dark:text-slate-300">No jobs found</p>
                         <p className="text-sm">Try adjusting your search or filters</p>
                     </div>
                 )}

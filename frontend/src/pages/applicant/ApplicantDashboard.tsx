@@ -303,7 +303,7 @@ function SkillsMultiSelect({
                                         onClick={() =>
                                             onChange(isSelected ? selectedIds.filter((id) => id !== sk.id) : [...selectedIds, sk.id])
                                         }
-                                        className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-indigo-50 transition-colors border-b border-gray-50 ${isSelected ? "bg-indigo-50/50 text-indigo-700 font-medium" : "text-gray-700"
+                                        className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-indigo-50 dark:text-white transition-colors border-b border-gray-50 ${isSelected ? "bg-indigo-50/50 text-indigo-700 font-medium" : "text-gray-700"
                                             }`}
                                     >
                                         {isSelected ? (
@@ -565,14 +565,14 @@ export default function ApplicantDashboard() {
                     <TabsList className="flex flex-col h-auto bg-transparent gap-1 p-0">
                         <TabsTrigger
                             value="profile"
-                            className="justify-start gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 hover:bg-gray-100 transition-all border-none shadow-none w-full"
+                            className="justify-start gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 dark:data-[state=active]:bg-slate-800 dark:data-[state=active]:text-indigo-300 hover:bg-gray-100 dark:hover:bg-slate-800/70 data-[state=active]:shadow-none transition-all border-none shadow-none w-full"
                         >
                             <UserCircle2 className="w-4 h-4" />
                             <span>Profile Builder</span>
                         </TabsTrigger>
                         <TabsTrigger
                             value="applications"
-                            className="justify-start gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 hover:bg-gray-100 transition-all border-none shadow-none w-full"
+                            className="justify-start gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 dark:data-[state=active]:bg-slate-800 dark:data-[state=active]:text-indigo-300 hover:bg-gray-100 dark:hover:bg-slate-800/70 data-[state=active]:shadow-none transition-all border-none shadow-none w-full"
                         >
                             <CheckCircle2 className="w-4 h-4" />
                             <span>My Applications</span>
@@ -599,19 +599,19 @@ export default function ApplicantDashboard() {
                         </div>
 
                         {!sections?.resume && (
-                            <div className="bg-white border border-blue-200 rounded-2xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div className="bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-900/60 rounded-2xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                 <div>
-                                    <p className="text-sm text-blue-700 font-semibold">Step 1: Upload Your Resume First</p>
-                                    <p className="text-sm text-gray-600 mt-1">We'll automatically parse your skills to save you time.</p>
+                                    <p className="text-sm text-blue-700 dark:text-blue-300 font-semibold">Step 1: Upload Your Resume First</p>
+                                    <p className="text-sm text-gray-600 dark:text-slate-300 mt-1">We'll automatically parse your skills to save you time.</p>
                                 </div>
                             </div>
                         )}
 
                         {sections?.resume && !sections?.basicInfo && (
-                            <div className="bg-white border border-orange-200 rounded-2xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div className="bg-white dark:bg-slate-900 border border-orange-200 dark:border-orange-900/60 rounded-2xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                 <div>
-                                    <p className="text-sm text-orange-700 font-semibold">Step 2: super short onboarding (30-60 seconds)</p>
-                                    <p className="text-sm text-gray-600 mt-1">First name, last name, phone, and location.</p>
+                                    <p className="text-sm text-orange-700 dark:text-orange-300 font-semibold">Step 2: super short onboarding (30-60 seconds)</p>
+                                    <p className="text-sm text-gray-600 dark:text-slate-300 mt-1">First name, last name, phone, and location.</p>
                                 </div>
                                 <Button onClick={openOnboarding} className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl">
                                     Start onboarding
@@ -620,10 +620,10 @@ export default function ApplicantDashboard() {
                         )}
 
                         {sections?.resume && sections?.basicInfo && !sections?.skills && (
-                            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/60 rounded-2xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                 <div>
-                                    <p className="text-sm font-semibold text-emerald-700">Step 3: Review your skills (takes 20 seconds)</p>
-                                    <p className="text-sm text-emerald-900/80">Make sure our AI captured your skills correctly.</p>
+                                    <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Step 3: Review your skills (takes 20 seconds)</p>
+                                    <p className="text-sm text-emerald-900/80 dark:text-emerald-200/90">Make sure our AI captured your skills correctly.</p>
                                 </div>
                                 <Button onClick={() => openSectionEditor("skills")} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
                                     Review skills
@@ -632,24 +632,24 @@ export default function ApplicantDashboard() {
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                            <div className="relative overflow-hidden bg-white border border-gray-200 rounded-2xl p-5">
-                                <div className="absolute -right-10 -top-10 w-28 h-28 rounded-full bg-cyan-100/50 blur-2xl" />
-                                <div className="absolute -left-8 -bottom-10 w-24 h-24 rounded-full bg-indigo-100/50 blur-2xl" />
+                            <div className="relative overflow-hidden bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl p-5">
+                                <div className="absolute -right-10 -top-10 w-28 h-28 rounded-full bg-cyan-100/50 dark:bg-cyan-500/10 blur-2xl" />
+                                <div className="absolute -left-8 -bottom-10 w-24 h-24 rounded-full bg-indigo-100/50 dark:bg-indigo-500/10 blur-2xl" />
 
                                 <div className="relative flex items-start justify-between gap-3">
                                     <div>
-                                        <div className="flex items-center gap-2 text-gray-900 font-semibold">
+                                        <div className="flex items-center gap-2 text-gray-900 dark:text-slate-100 font-semibold">
                                             <FileText className="w-5 h-5 text-indigo-600" /> Resume
-                                            <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">PDF only</span>
+                                            <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-200">PDF only</span>
                                         </div>
-                                        <p className="text-sm text-gray-500 mt-1">Upload once, then apply instantly to jobs.</p>
+                                        <p className="text-sm text-gray-500 dark:text-slate-300 mt-1">Upload once, then apply instantly to jobs.</p>
                                     </div>
                                     {sections?.resume ? (
                                         <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">
                                             <CheckCircle2 className="w-3.5 h-3.5" /> Uploaded
                                         </span>
                                     ) : (
-                                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
+                                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300">
                                             <Circle className="w-3.5 h-3.5" /> Missing
                                         </span>
                                     )}
@@ -657,8 +657,8 @@ export default function ApplicantDashboard() {
 
                                 <div
                                     className={`relative mt-4 rounded-xl border border-dashed p-3 space-y-3 transition-colors ${isResumeDragActive
-                                        ? "border-indigo-500 bg-indigo-100/70"
-                                        : "border-indigo-200 bg-indigo-50/50"
+                                        ? "border-indigo-500 bg-indigo-100/70 dark:bg-indigo-500/20"
+                                        : "border-indigo-200 dark:border-indigo-700/60 bg-indigo-50/50 dark:bg-indigo-950/25"
                                         }`}
                                     onDrop={onResumeDrop}
                                     onDragOver={onResumeDragOver}
@@ -669,7 +669,7 @@ export default function ApplicantDashboard() {
                                             href={me.primaryResumeUrl}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-700 hover:text-indigo-800 hover:underline break-all"
+                                            className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-indigo-200 hover:underline break-all"
                                         >
                                             <CheckCircle2 className="w-3.5 h-3.5" />
                                             Current resume attached
@@ -716,7 +716,7 @@ export default function ApplicantDashboard() {
                                                 variant="outline"
                                                 disabled={uploadingResume}
                                                 onClick={() => skillsOnlyResumeInputRef.current?.click()}
-                                                className="h-10 rounded-xl border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                                                className="h-10 rounded-xl border-indigo-200 dark:border-indigo-700 dark:text-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
                                             >
                                                 {uploadingResume ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                                                 Upload New Resume (Skills Only)
@@ -724,9 +724,9 @@ export default function ApplicantDashboard() {
                                         )}
                                     </div>
 
-                                    <div className="rounded-lg border border-dashed border-indigo-300/80 bg-white/70 px-3 py-2 text-center">
-                                        <p className="text-[11px] font-medium text-indigo-700">Drag and drop your PDF here</p>
-                                        <p className="text-[10px] text-gray-500 mt-0.5">
+                                    <div className="rounded-lg border border-dashed border-indigo-300/80 dark:border-indigo-700/70 bg-white/70 dark:bg-slate-900/60 px-3 py-2 text-center">
+                                        <p className="text-[11px] font-medium text-indigo-700 dark:text-indigo-300">Drag and drop your PDF here</p>
+                                        <p className="text-[10px] text-gray-500 dark:text-slate-300 mt-0.5">
                                             {hasPrimaryResume
                                                 ? "Dropping a file will update skills only."
                                                 : "Dropping a file will upload resume and parse profile details."}
@@ -734,40 +734,40 @@ export default function ApplicantDashboard() {
                                     </div>
 
                                     {!hasPrimaryResume && (
-                                        <p className="text-[11px] text-gray-500">Tip: first upload can auto-fill missing basic info and skills from your resume.</p>
+                                        <p className="text-[11px] text-gray-500 dark:text-slate-300">Tip: first upload can auto-fill missing basic info and skills from your resume.</p>
                                     )}
                                     {hasPrimaryResume && (
-                                        <p className="text-[11px] text-gray-500">Tip: uploading a new resume now refreshes only skills and keeps basic info unchanged.</p>
+                                        <p className="text-[11px] text-gray-500 dark:text-slate-300">Tip: uploading a new resume now refreshes only skills and keeps basic info unchanged.</p>
                                     )}
-                                    <p className="text-[11px] text-gray-500">For better parsing quality, use a text-based PDF (not scanned image).</p>
+                                    <p className="text-[11px] text-gray-500 dark:text-slate-300">For better parsing quality, use a text-based PDF (not scanned image).</p>
                                     {resumeError && <p className="text-xs text-red-600 font-medium">{resumeError}</p>}
                                 </div>
                             </div>
 
                             <button
                                 onClick={openOnboarding}
-                                className="text-left bg-white border border-gray-200 rounded-2xl p-5 hover:border-indigo-300 hover:shadow-sm transition-all"
+                                className="text-left bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl p-5 hover:border-indigo-300 dark:hover:border-indigo-500/60 hover:shadow-sm transition-all"
                             >
                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2 text-gray-900 font-semibold">
+                                    <div className="flex items-center gap-2 text-gray-900 dark:text-slate-100 font-semibold">
                                         <UserCircle2 className="w-5 h-5" /> Basic Info
                                     </div>
                                     {sections?.basicInfo ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Circle className="w-5 h-5 text-gray-300" />}
                                 </div>
-                                <p className="text-sm text-gray-500 mt-2">Name, phone, location</p>
+                                <p className="text-sm text-gray-500 dark:text-slate-300 mt-2">Name, phone, location</p>
                                 <div className="mt-3 space-y-1.5">
-                                    <p className="text-xs text-gray-700 truncate">
-                                        <span className="font-semibold text-gray-900">Name:</span>{" "}
+                                    <p className="text-xs text-gray-700 dark:text-slate-300 truncate">
+                                        <span className="font-semibold text-gray-900 dark:text-slate-100">Name:</span>{" "}
                                         {me?.firstName || me?.lastName
                                             ? `${me?.firstName ?? ""} ${me?.lastName ?? ""}`.trim()
                                             : "Not added yet"}
                                     </p>
-                                    <p className="text-xs text-gray-700 truncate">
-                                        <span className="font-semibold text-gray-900">Phone:</span>{" "}
+                                    <p className="text-xs text-gray-700 dark:text-slate-300 truncate">
+                                        <span className="font-semibold text-gray-900 dark:text-slate-100">Phone:</span>{" "}
                                         {me?.phone?.trim() ? me.phone : "Not added yet"}
                                     </p>
-                                    <p className="text-xs text-gray-700 truncate">
-                                        <span className="font-semibold text-gray-900">Country:</span>{" "}
+                                    <p className="text-xs text-gray-700 dark:text-slate-300 truncate">
+                                        <span className="font-semibold text-gray-900 dark:text-slate-100">Country:</span>{" "}
                                         {me?.location?.trim() ? me.location : "Not added yet"}
                                     </p>
                                 </div>
@@ -779,17 +779,17 @@ export default function ApplicantDashboard() {
                                     <button
                                         key={section.key}
                                         onClick={() => openSectionEditor(section.key)}
-                                        className="text-left bg-white border border-gray-200 rounded-2xl p-5 hover:border-indigo-300 hover:shadow-sm transition-all"
+                                        className="text-left bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl p-5 hover:border-indigo-300 dark:hover:border-indigo-500/60 hover:shadow-sm transition-all"
                                     >
                                         <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2 text-gray-900 font-semibold">
+                                            <div className="flex items-center gap-2 text-gray-900 dark:text-slate-100 font-semibold">
                                                 {meta.icon}
                                                 <span>{meta.label}</span>
-                                                {meta.important && <span className="text-[10px] uppercase px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">Important</span>}
+                                                {meta.important && <span className="text-[10px] uppercase px-2 py-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 rounded-full">Important</span>}
                                             </div>
                                             {section.complete ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Circle className="w-5 h-5 text-gray-300" />}
                                         </div>
-                                        <p className="text-sm text-gray-500 mt-2">{meta.hint}</p>
+                                        <p className="text-sm text-gray-500 dark:text-slate-300 mt-2">{meta.hint}</p>
                                         {/* Show skill chips on skills card */}
                                         {section.key === "skills" && (
                                             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -801,13 +801,13 @@ export default function ApplicantDashboard() {
                                                             </span>
                                                         ))}
                                                         {(section.data as SkillOption[]).length > 5 && (
-                                                            <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">
+                                                            <span className="text-[10px] px-2 py-0.5 bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-300 rounded-full">
                                                                 +{(section.data as SkillOption[]).length - 5} more
                                                             </span>
                                                         )}
                                                     </>
                                                 ) : (
-                                                    <span className="text-[11px] text-gray-500">No skills added yet</span>
+                                                    <span className="text-[11px] text-gray-500 dark:text-slate-300">No skills added yet</span>
                                                 )}
                                             </div>
                                         )}
@@ -819,24 +819,24 @@ export default function ApplicantDashboard() {
                         </div>
 
                         {!!me?.nudgeMessages?.length && (
-                            <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-3">
-                                <div className="flex items-center gap-2 text-gray-900 font-semibold">
+                            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl p-5 space-y-3">
+                                <div className="flex items-center gap-2 text-gray-900 dark:text-slate-100 font-semibold">
                                     <Bell className="w-5 h-5 text-indigo-600" /> Smart nudges
                                 </div>
                                 {me.nudgeMessages.map((msg) => (
-                                    <div key={msg} className="text-sm bg-indigo-50 text-indigo-800 rounded-xl px-3 py-2">
+                                    <div key={msg} className="text-sm bg-indigo-50 dark:bg-indigo-950/35 text-indigo-800 dark:text-indigo-200 rounded-xl px-3 py-2">
                                         {msg}
                                     </div>
                                 ))}
                             </div>
                         )}
 
-                        <div className="bg-white border border-gray-200 rounded-2xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                             <div>
-                                <p className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                <p className="text-sm font-semibold text-gray-900 dark:text-slate-100 flex items-center gap-2">
                                     <Trophy className="w-4 h-4 text-amber-500" /> Ready to apply faster
                                 </p>
-                                <p className="text-sm text-gray-600 mt-1">Once basic info, skills, and resume are complete, you can apply without re-uploading resume.</p>
+                                <p className="text-sm text-gray-600 dark:text-slate-300 mt-1">Once basic info, skills, and resume are complete, you can apply without re-uploading resume.</p>
                             </div>
                             <Link to="/jobs">
                                 <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white">
@@ -848,8 +848,8 @@ export default function ApplicantDashboard() {
 
                     <TabsContent value="applications" className="mt-0 outline-none space-y-4">
                         <div className="flex items-center justify-between">
-                            <h1 className="text-2xl font-bold text-gray-900">My Applications</h1>
-                            <Link to="/jobs" className="text-indigo-700 text-sm hover:bg-indigo-100 ring-1 ring-indigo-700 rounded-lg px-2 py-1 cursor-pointer">Browse Jobs</Link>
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Applications</h1>
+                            <Link to="/jobs" className="text-indigo-700 dark:text-indigo-300 text-sm hover:bg-indigo-100 dark:hover:bg-indigo-900/40 ring-1 ring-indigo-700 dark:ring-indigo-400 rounded-lg px-2 py-1 cursor-pointer">Browse Jobs</Link>
                         </div>
 
                         {appsLoading && (
@@ -859,10 +859,10 @@ export default function ApplicantDashboard() {
                         )}
 
                         {!appsLoading && applications.length === 0 && (
-                            <div className="flex flex-col items-center py-16 gap-3 text-gray-400 bg-white border border-gray-200 rounded-2xl">
-                                <Sparkles className="w-10 h-10 text-gray-300" />
-                                <p className="font-medium text-gray-500">No applications yet</p>
-                                <Link to="/jobs" className="text-sm text-indigo-600 hover:underline transition-all">
+                            <div className="flex flex-col items-center py-16 gap-3 text-gray-400 dark:text-slate-400 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl">
+                                <Sparkles className="w-10 h-10 text-gray-300 dark:text-slate-600" />
+                                <p className="font-medium text-gray-500 dark:text-slate-300">No applications yet</p>
+                                <Link to="/jobs" className="text-sm text-indigo-600 dark:text-indigo-300 hover:underline transition-all">
                                     Browse available jobs
                                 </Link>
                             </div>
@@ -878,13 +878,13 @@ export default function ApplicantDashboard() {
                                 });
 
                                 return (
-                                    <div key={app.id} className="bg-white border border-gray-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4 hover:shadow-sm transition-all">
+                                    <div key={app.id} className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4 hover:shadow-sm transition-all">
                                         <div className="flex-1 min-w-0">
-                                            <Link to={`/jobs/${app.job.id}`} className="font-bold text-gray-900 hover:text-indigo-700 transition-colors text-lg">
+                                            <Link to={`/jobs/${app.job.id}`} className="font-bold text-gray-900 dark:text-slate-100 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors text-lg">
                                                 {app.job.title}
                                             </Link>
-                                            <div className="flex items-center gap-4 mt-1.5 text-sm text-gray-500">
-                                                <span className="font-medium text-gray-700">{app.job.company.name}</span>
+                                            <div className="flex items-center gap-4 mt-1.5 text-sm text-gray-500 dark:text-slate-400">
+                                                <span className="font-medium text-gray-700 dark:text-slate-300">{app.job.company.name}</span>
                                                 {app.job.location && (
                                                     <span className="flex items-center gap-1">
                                                         <MapPin className="w-3.5 h-3.5" />
@@ -898,8 +898,8 @@ export default function ApplicantDashboard() {
                                                 {s.icon} {s.label}
                                             </span>
                                             <div className="text-right flex flex-col items-end">
-                                                <span className="text-xs font-semibold text-gray-400 uppercase tracking-tighter">Applied on</span>
-                                                <span className="text-sm font-medium text-gray-600">{date}</span>
+                                                <span className="text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-tighter">Applied on</span>
+                                                <span className="text-sm font-medium text-gray-600 dark:text-slate-300">{date}</span>
                                             </div>
                                         </div>
                                     </div>

@@ -1,14 +1,17 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { TitleUpdater } from "@/components/TitleUpdater";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ReactNode } from "react";
 
 import ApplicantLogin from "@/pages/applicant/ApplicantLogin";
 import ApplicantRegister from "@/pages/applicant/ApplicantRegister";
+import ApplicantVerifyOtp from "@/pages/applicant/ApplicantVerifyOtp";
 import ApplicantDashboard from "@/pages/applicant/ApplicantDashboard";
 import CompanyLogin from "@/pages/company/CompanyLogin";
 import CompanyRegister from "@/pages/company/CompanyRegister";
+import CompanyVerifyOtp from "@/pages/company/CompanyVerifyOtp";
 import CompanyDashboard from "@/pages/company/CompanyDashboard";
 import NewLandingPage from "./pages/landing/NewLandingPage/NewLandingPage";
 import JobsPage from "@/pages/jobs/JobsPage";
@@ -40,47 +43,53 @@ function App() {
   return (
     <BrowserRouter>
       <TitleUpdater />
-      <AuthProvider>
-        <Routes>
-          {/* Landing */}
-          <Route path="/" element={<NewLandingPage />} />
+      <ThemeProvider>
+        <AuthProvider>
+          <Routes>
+            {/* Landing */}
+            <Route path="/" element={<NewLandingPage />} />
 
-          {/* Public job pages */}
-          <Route path="/jobs" element={<JobsPage />} />
-          <Route path="/jobs/:id" element={<JobDetailPage />} />
+            {/* Public job pages */}
+            <Route path="/jobs" element={<JobsPage />} />
+            <Route path="/jobs/:id" element={<JobDetailPage />} />
 
-          {/* Applicant auth */}
-          <Route path="/applicant/login" element={<RedirectIfAuthenticated><ApplicantLogin /></RedirectIfAuthenticated>} />
-          <Route path="/applicant/register" element={<RedirectIfAuthenticated><ApplicantRegister /></RedirectIfAuthenticated>} />
+            {/* Applicant auth */}
+            <Route path="/applicant/login" element={<RedirectIfAuthenticated><ApplicantLogin /></RedirectIfAuthenticated>} />
+            <Route path="/applicant/register" element={<RedirectIfAuthenticated><ApplicantRegister /></RedirectIfAuthenticated>} />
+            <Route path="/applicant/verify-otp" element={<RedirectIfAuthenticated><ApplicantVerifyOtp /></RedirectIfAuthenticated>} />
 
-          {/* Applicant dashboard (auth guarded) */}
-          <Route
-            path="/applicant/dashboard"
-            element={
-              <RequireAuth>
-                <ApplicantDashboard />
-              </RequireAuth>
-            }
-          />
+            {/* Applicant dashboard (auth guarded) */}
+            <Route
+              path="/applicant/dashboard"
+              element={
+                <RequireAuth>
+                  <ApplicantDashboard />
+                </RequireAuth>
+              }
+            />
 
-          {/* Company / Recruiter auth */}
-          <Route path="/company/login" element={<CompanyLogin />} />
-          <Route path="/company/register" element={<CompanyRegister />} />
+            {/* Company / Recruiter auth */}
+            <Route path="/company/login" element={<CompanyLogin />} />
+            <Route path="/company/register" element={<CompanyRegister />} />
+            <Route path="/company/verify-otp" element={<CompanyVerifyOtp />} />
 
-          {/* Company dashboard (recruiter only, auth guarded) */}
-          <Route
-            path="/company/dashboard"
-            element={
-              <RequireAuth recruiterOnly>
-                <CompanyDashboard />
-              </RequireAuth>
-            }
-          />
+            {/* Company dashboard (recruiter only, auth guarded) */}
+            <Route
+              path="/company/dashboard"
+              element={
+                <RequireAuth recruiterOnly>
+                  <CompanyDashboard />
+                </RequireAuth>
+              }
+            />
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AuthProvider>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+          <div className="fixed right-4 bottom-4 z-60 rounded-xl border border-gray-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 p-1 shadow-lg backdrop-blur-sm">
+          </div>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

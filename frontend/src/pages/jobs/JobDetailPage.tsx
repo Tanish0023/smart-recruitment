@@ -8,6 +8,7 @@ import {
 import { GET_JOB_DETAIL, APPLY_TO_JOB, GET_MY_APPLICATIONS } from "@/graphql/jobs";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface JobDetail {
     id: string;
@@ -74,27 +75,30 @@ export default function JobDetailPage() {
         : "";
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50">
+        <div className="min-h-screen bg-linear-to-br from-slate-50 via-white to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 transition-colors">
             {/* Navbar */}
-            <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200">
+            <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/85 backdrop-blur-md border-b border-gray-200 dark:border-slate-800">
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
                     <Link to="/" className="flex items-center gap-2">
                         <div className="bg-indigo-600 text-white p-2 rounded-xl">
                             <Rocket size={18} />
                         </div>
-                        <span className="text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-purple-600">
+                        <span className="text-base font-bold bg-clip-text text-transparent bg-linear-to-r from-indigo-700 to-purple-600">
                             Smart Recruit
                         </span>
                     </Link>
-                    <Link to="/jobs" className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-indigo-700 transition-colors">
-                        <ArrowLeft className="w-4 h-4" /> All Jobs
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        <ThemeToggle />
+                        <Link to="/jobs" className="flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">
+                            <ArrowLeft className="w-4 h-4" /> All Jobs
+                        </Link>
+                    </div>
                 </div>
             </header>
 
             <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
                 {loading && (
-                    <div className="flex items-center justify-center py-24 gap-3 text-gray-400">
+                    <div className="flex items-center justify-center py-24 gap-3 text-gray-400 dark:text-slate-400">
                         <Loader2 className="w-6 h-6 animate-spin" />
                         <span>Loading job…</span>
                     </div>
@@ -113,19 +117,19 @@ export default function JobDetailPage() {
                 {job && (
                     <div className="space-y-6">
                         {/* Hero card */}
-                        <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-8">
+                        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-700 shadow-sm p-8">
                             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                                 <div className="flex-1 min-w-0">
-                                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">{job.title}</h1>
-                                    <div className="flex items-center gap-2 mt-2 text-gray-600">
-                                        <Building2 className="w-4 h-4 flex-shrink-0" />
-                                        <span className="font-semibold text-gray-800">{job.company.name}</span>
+                                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-slate-100 leading-tight">{job.title}</h1>
+                                    <div className="flex items-center gap-2 mt-2 text-gray-600 dark:text-slate-300">
+                                        <Building2 className="w-4 h-4 shrink-0" />
+                                        <span className="font-semibold text-gray-800 dark:text-slate-200">{job.company.name}</span>
                                         {job.company.website && (
                                             <a
                                                 href={job.company.website}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="text-indigo-600 hover:text-indigo-800"
+                                                className="text-indigo-600 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-indigo-200"
                                             >
                                                 <Globe className="w-4 h-4" />
                                             </a>
@@ -144,7 +148,7 @@ export default function JobDetailPage() {
                                         <Button
                                             onClick={handleApplyClick}
                                             disabled={applying}
-                                            className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white px-7 py-3 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all"
+                                            className="bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white px-7 py-3 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all"
                                         >
                                             {applying ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                                             {applying ? "Applying..." : "Apply Now"}
@@ -154,7 +158,7 @@ export default function JobDetailPage() {
                                         <div className="max-w-xs text-right space-y-1">
                                             <p className="text-xs text-red-600">{applyError}</p>
                                             {applyError.includes("Complete your profile") && (
-                                                <Link to="/applicant/dashboard" className="text-xs text-indigo-700 hover:underline">
+                                                <Link to="/applicant/dashboard" className="text-xs text-indigo-700 dark:text-indigo-300 hover:underline">
                                                     Complete profile in dashboard
                                                 </Link>
                                             )}
@@ -175,7 +179,7 @@ export default function JobDetailPage() {
                                         <DollarSign className="w-3.5 h-3.5" /> {job.salaryRange}
                                     </span>
                                 )}
-                                <span className="inline-flex items-center gap-1 text-sm font-medium bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full">
+                                <span className="inline-flex items-center gap-1 text-sm font-medium bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 px-3 py-1.5 rounded-full">
                                     <Calendar className="w-3.5 h-3.5" /> Posted {dateStr}
                                 </span>
                                 <span className="inline-flex items-center gap-1 text-sm font-medium bg-amber-50 text-amber-700 px-3 py-1.5 rounded-full">
@@ -185,15 +189,15 @@ export default function JobDetailPage() {
                         </div>
 
                         {/* Description */}
-                        <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-8">
-                            <h2 className="text-lg font-bold text-gray-900 mb-4">Job Description</h2>
-                            <div className="prose prose-gray max-w-none text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">
+                        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-700 shadow-sm p-8">
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-4">Job Description</h2>
+                            <div className="prose prose-gray dark:prose-invert max-w-none text-gray-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-sm">
                                 {job.description}
                             </div>
                         </div>
 
                         {/* Bottom CTA */}
-                        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-3xl p-8 text-white text-center">
+                        <div className="bg-linear-to-r from-indigo-600 to-violet-600 rounded-3xl p-8 text-white text-center">
                             <p className="text-lg font-semibold mb-1">Excited about this role?</p>
                             <p className="text-indigo-200 text-sm mb-5">
                                 {isAuthenticated ? "Submit your application now." : "Sign in or create a free account to apply."}

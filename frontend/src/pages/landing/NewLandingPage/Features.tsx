@@ -34,7 +34,7 @@ const features = [
 
 const Features = () => {
   return (
-    <section id="features" className="py-24 bg-gray-50">
+    <section id="features" className="py-24 bg-gray-50 dark:bg-slate-900/60 transition-colors">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <motion.h2
@@ -42,7 +42,7 @@ const Features = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="text-3xl lg:text-5xl font-bold text-gray-900 mb-6"
+            className="text-3xl lg:text-5xl font-bold text-gray-900 dark:text-slate-100 mb-6"
           >
             Smarter hiring, <span className="text-indigo-600">powered by AI</span>
           </motion.h2>
@@ -51,7 +51,7 @@ const Features = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-lg text-gray-600"
+            className="text-lg text-gray-600 dark:text-slate-300"
           >
             We've automated the most tedious parts of recruitment so you can focus on building relationships with the best talent.
           </motion.p>
@@ -65,13 +65,13 @@ const Features = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: feature.delay }}
-              className="bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-shadow border border-gray-100 group"
+              className="bg-white dark:bg-slate-900 rounded-2xl p-8 shadow-sm hover:shadow-xl transition-shadow border border-gray-100 dark:border-slate-700 group"
             >
               <div className={`${feature.color} w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform duration-300`}>
                 {feature.icon}
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
-              <p className="text-gray-600 leading-relaxed">{feature.description}</p>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100 mb-3">{feature.title}</h3>
+              <p className="text-gray-600 dark:text-slate-300 leading-relaxed">{feature.description}</p>
             </motion.div>
           ))}
         </div>

@@ -28,25 +28,25 @@ export function JobCard({ job, actionSlot, compact = false }: JobCardProps) {
     });
 
     return (
-        <div className="group bg-white border border-gray-200 rounded-2xl p-5 hover:border-indigo-300 hover:shadow-md transition-all duration-200 flex flex-col gap-4">
+        <div className="group bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl p-5 hover:border-indigo-300 dark:hover:border-indigo-500/60 hover:shadow-md transition-all duration-200 flex flex-col gap-4">
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                     <Link
                         to={`/jobs/${job.id}`}
-                        className="font-semibold text-gray-900 text-lg leading-tight hover:text-indigo-700 transition-colors line-clamp-2"
+                        className="font-semibold text-gray-900 dark:text-slate-100 text-lg leading-tight hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors line-clamp-2"
                     >
                         {job.title}
                     </Link>
-                    <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500">
-                        <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span className="font-medium text-gray-700">{job.company.name}</span>
+                    <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500 dark:text-slate-400">
+                        <Building2 className="w-3.5 h-3.5 shrink-0" />
+                        <span className="font-medium text-gray-700 dark:text-slate-300">{job.company.name}</span>
                     </div>
                 </div>
 
                 <Link
                     to={`/jobs/${job.id}`}
-                    className="hidden group-hover:flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex-shrink-0 transition-all"
+                    className="hidden group-hover:flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 shrink-0 transition-all"
                 >
                     <ArrowRight className="w-4 h-4" />
                 </Link>
@@ -66,7 +66,7 @@ export function JobCard({ job, actionSlot, compact = false }: JobCardProps) {
                         {job.salaryRange}
                     </span>
                 )}
-                <span className="inline-flex items-center gap-1 text-xs font-medium bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">
+                <span className="inline-flex items-center gap-1 text-xs font-medium bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 px-2.5 py-1 rounded-full">
                     <Calendar className="w-3 h-3" />
                     {dateStr}
                 </span>
@@ -77,11 +77,11 @@ export function JobCard({ job, actionSlot, compact = false }: JobCardProps) {
 
             {/* Description */}
             {!compact && (
-                <p className="text-sm text-gray-600 leading-relaxed">{preview}</p>
+                <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed">{preview}</p>
             )}
 
             {/* Footer */}
-            {actionSlot && <div className="pt-1 border-t border-gray-100">{actionSlot}</div>}
+            {actionSlot && <div className="pt-1 border-t border-gray-100 dark:border-slate-800">{actionSlot}</div>}
         </div>
     );
 }

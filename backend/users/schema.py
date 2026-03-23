@@ -2,6 +2,8 @@ import graphene
 import logging
 import os
 from pathlib import Path
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.db import transaction
 from django.utils import timezone
@@ -13,7 +15,7 @@ from graphql import GraphQLError
 import graphql_jwt
 from graphql_jwt.shortcuts import get_token
 from .decorators import login_required, admin_required
-from email_service.tasks import send_registration_thank_you_email
+from email_service.tasks import send_registration_thank_you_email, send_otp_verification_email
 
 from .models import Company
 from jobs.models import Job, JobApplication
@@ -33,7 +35,7 @@ logger = logging.getLogger(__name__)
 class CompanyType(DjangoObjectType):
     class Meta:
         model = Company
-        fields = ("id", "name", "website")
+        fields = ("id", "name", "email", "website", "is_verified")
 
 
 
@@ -58,6 +60,7 @@ class UserType(DjangoObjectType):
             "id",
             "username",
             "email",
+            "is_verified",
             "first_name",
             "last_name",
             "is_recruiter",
@@ -122,18 +125,43 @@ class Query(graphene.ObjectType):
 
 class CreateCompany(graphene.Mutation):
     company = graphene.Field(CompanyType)
+    message = graphene.String()
 
     class Arguments:
         name = graphene.String(required=True)
+        email = graphene.String(required=True)
         website = graphene.String()
 
-    def mutate(self, info, name, website=None):
-        company = Company.objects.create(name=name, website=website)
-        return CreateCompany(company=company)  # type: ignore
+    def mutate(self, info, name, email, website=None):
+        normalized_email = (email or "").strip().lower()
+        try:
+            validate_email(normalized_email)
+        except ValidationError:
+            raise GraphQLError("Invalid company email")
+
+        company = Company(name=name, email=normalized_email, website=website, is_verified=False)
+        company.generate_otp()
+        try:
+            company.save()
+        except IntegrityError:
+            raise GraphQLError("Company name or email already exists")
+
+        send_otp_verification_email.delay(
+            user_email=company.email,
+            recipient_name=company.name,
+            otp_code=company.otp_code,
+            entity_type="company",
+        )
+
+        return CreateCompany(
+            company=company,
+            message="Company created. OTP sent to company email and valid for 10 minutes",
+        )  # type: ignore
 
 
 class RegisterUser(graphene.Mutation):
     user = graphene.Field(UserType)
+    message = graphene.String()
 
     class Arguments:
         username = graphene.String(required=True)
@@ -149,13 +177,15 @@ class RegisterUser(graphene.Mutation):
         if User.objects.filter(email__iexact=email).exists():
             raise GraphQLError("Email is already registered. Please use another email or login.")
 
-        user = User(username=username, email=email, is_recruiter=is_recruiter)
+        user = User(username=username, email=email, is_recruiter=is_recruiter, is_verified=False)
         if company_id:
             try:
                 company = Company.objects.get(pk=company_id)
                 user.company = company
             except Company.DoesNotExist:
                 raise GraphQLError("Company not found")
+
+        user.generate_otp()
         user.set_password(password)
         try:
             user.save()
@@ -163,13 +193,128 @@ class RegisterUser(graphene.Mutation):
             # Handles race-condition duplicates between check and insert.
             raise GraphQLError("Unable to register. Username or email may already exist.")
 
+        send_otp_verification_email.delay(
+            user_email=user.email,
+            recipient_name=user.username,
+            otp_code=user.otp_code,
+            entity_type="user",
+        )
+
+        return RegisterUser(
+            user=user,
+            message="Registration successful. OTP sent to email and valid for 10 minutes",
+        )  # type: ignore
+
+
+class VerifyUserOtp(graphene.Mutation):
+    user = graphene.Field(UserType)
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    class Arguments:
+        email = graphene.String(required=True)
+        otp = graphene.String(required=True)
+
+    def mutate(self, info, email, otp):
+        user = User.objects.filter(email__iexact=(email or "").strip()).first()
+        if not user:
+            raise GraphQLError("User not found")
+
+        if user.is_verified:
+            return VerifyUserOtp(user=user, success=True, message="User already verified")
+
+        if not user.verify_otp(otp):
+            raise GraphQLError("Invalid or expired OTP")
+
+        user.is_verified = True
+        user.clear_otp()
+        user.save(update_fields=["is_verified", "otp_code", "otp_expires_at"])
+
         try:
             send_registration_thank_you_email.delay(user.email, user.username)
         except Exception:
-            # Registration should still succeed even if queue publishing fails.
             logger.exception("Failed to enqueue registration email for user_id=%s", user.id)
 
-        return RegisterUser(user=user)  # type: ignore
+        return VerifyUserOtp(user=user, success=True, message="User verified successfully")
+
+
+class ResendUserOtp(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    class Arguments:
+        email = graphene.String(required=True)
+
+    def mutate(self, info, email):
+        user = User.objects.filter(email__iexact=(email or "").strip()).first()
+        if not user:
+            raise GraphQLError("User not found")
+
+        if user.is_verified:
+            return ResendUserOtp(success=True, message="User already verified")
+
+        user.generate_otp()
+        user.save(update_fields=["otp_code", "otp_expires_at"])
+
+        send_otp_verification_email.delay(
+            user_email=user.email,
+            recipient_name=user.username,
+            otp_code=user.otp_code,
+            entity_type="user",
+        )
+        return ResendUserOtp(success=True, message="OTP resent and valid for 10 minutes")
+
+
+class VerifyCompanyOtp(graphene.Mutation):
+    company = graphene.Field(CompanyType)
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    class Arguments:
+        email = graphene.String(required=True)
+        otp = graphene.String(required=True)
+
+    def mutate(self, info, email, otp):
+        company = Company.objects.filter(email__iexact=(email or "").strip()).first()
+        if not company:
+            raise GraphQLError("Company not found")
+
+        if company.is_verified:
+            return VerifyCompanyOtp(company=company, success=True, message="Company already verified")
+
+        if not company.verify_otp(otp):
+            raise GraphQLError("Invalid or expired OTP")
+
+        company.is_verified = True
+        company.clear_otp()
+        company.save(update_fields=["is_verified", "otp_code", "otp_expires_at"])
+        return VerifyCompanyOtp(company=company, success=True, message="Company verified successfully")
+
+
+class ResendCompanyOtp(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    class Arguments:
+        email = graphene.String(required=True)
+
+    def mutate(self, info, email):
+        company = Company.objects.filter(email__iexact=(email or "").strip()).first()
+        if not company:
+            raise GraphQLError("Company not found")
+
+        if company.is_verified:
+            return ResendCompanyOtp(success=True, message="Company already verified")
+
+        company.generate_otp()
+        company.save(update_fields=["otp_code", "otp_expires_at"])
+        send_otp_verification_email.delay(
+            user_email=company.email,
+            recipient_name=company.name,
+            otp_code=company.otp_code,
+            entity_type="company",
+        )
+        return ResendCompanyOtp(success=True, message="OTP resent and valid for 10 minutes")
 
 
 class CompleteApplicantOnboarding(graphene.Mutation):
@@ -303,6 +448,8 @@ class ApplicantLogin(graphene.Mutation):
             raise Exception("Invalid credentials")
         if user.is_recruiter:
             raise Exception("Use recruiter/company login for recruiter accounts")
+        if not user.is_verified:
+            raise Exception("Account not verified. Please verify OTP first")
         token = get_token(user)
         return ApplicantLogin(token=token, user=user)  # type: ignore
 
@@ -321,8 +468,12 @@ class CompanyLogin(graphene.Mutation):
             raise Exception("Invalid credentials")
         if not user.is_recruiter:
             raise Exception("User is not a recruiter")
+        if not user.is_verified:
+            raise Exception("Account not verified. Please verify OTP first")
         if not user.company:
             raise Exception("Recruiter not associated with any company")
+        if not user.company.is_verified:
+            raise Exception("Company not verified. Please verify company OTP first")
         token = get_token(user)
         return CompanyLogin(token=token, user=user)  # type: ignore
 
@@ -358,6 +509,10 @@ class DeleteUser(graphene.Mutation):
 class Mutation(graphene.ObjectType):
     register = RegisterUser.Field()
     create_company = CreateCompany.Field()
+    verify_user_otp = VerifyUserOtp.Field()
+    resend_user_otp = ResendUserOtp.Field()
+    verify_company_otp = VerifyCompanyOtp.Field()
+    resend_company_otp = ResendCompanyOtp.Field()
     applicant_login = ApplicantLogin.Field()
     company_login = CompanyLogin.Field()
     complete_applicant_onboarding = CompleteApplicantOnboarding.Field()

@@ -132,15 +132,23 @@ export default function ApplicantLogin() {
 
                     {/* Server error */}
                     {serverError && (
-                        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                            {serverError}
+                        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 space-y-2">
+                            <p>{serverError}</p>
+                            {serverError.toLowerCase().includes("not verified") && (
+                                <Link
+                                    to="/applicant/verify-otp"
+                                    className="inline-block text-violet-700 underline font-medium"
+                                >
+                                    Go to OTP verification
+                                </Link>
+                            )}
                         </div>
                     )}
 
                     <Button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold shadow-md hover:shadow-lg transition-all"
+                        className="w-full bg-linear-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold shadow-md hover:shadow-lg transition-all"
                     >
                         {loading ? (
                             <span className="flex items-center gap-2">

@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Briefcase, Building2, Target, CheckCircle2 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface AuthLayoutProps {
     children: ReactNode;
@@ -42,21 +43,21 @@ export function AuthLayout({
     const RoleIcon = cfg.Icon;
 
     return (
-        <div className="min-h-screen flex">
+        <div className="min-h-screen flex bg-gray-50 dark:bg-slate-950 transition-colors">
             {/* Left panel — branding */}
             <div
-                className={`hidden lg:flex lg:w-[45%] bg-gradient-to-br ${cfg.gradient} flex-col justify-between p-12 relative overflow-hidden`}
+                className={`hidden lg:flex lg:w-[45%] bg-linear-to-br ${cfg.gradient} flex-col justify-between p-12 relative overflow-hidden`}
             >
                 <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
                 <div className="absolute -bottom-32 -right-16 w-80 h-80 rounded-full bg-white/10 blur-3xl" />
 
                 {/* Logo */}
-                <div className="relative z-10 flex items-center gap-3">
+                <Link to="/" className="relative z-10 flex items-center gap-3">
                     <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                         <Target className="w-5 h-5 text-white" />
                     </div>
                     <span className="text-white font-bold text-xl tracking-tight">SmartRecruit</span>
-                </div>
+                </Link>
 
                 {/* Center copy */}
                 <div className="relative z-10 space-y-8">
@@ -83,26 +84,29 @@ export function AuthLayout({
             </div>
 
             {/* Right panel — form */}
-            <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 bg-gray-50">
+            <div className="relative flex-1 flex flex-col items-center justify-center p-6 sm:p-12 bg-gray-50 dark:bg-slate-950 transition-colors">
+                <div className="absolute top-4 right-4 z-20 rounded-xl border border-gray-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 p-1 shadow-sm backdrop-blur-sm">
+                    <ThemeToggle />
+                </div>
                 <div className="w-full max-w-md">
                     {/* Mobile logo */}
-                    <div className="flex items-center gap-2 mb-8 lg:hidden">
-                        <div className={`w-8 h-8 bg-gradient-to-br ${cfg.gradient} rounded-lg flex items-center justify-center`}>
+                    <Link to="/" className="flex items-center gap-2 mb-8 lg:hidden">
+                        <div className={`w-8 h-8 bg-linear-to-br ${cfg.gradient} rounded-lg flex items-center justify-center`}>
                             <Target className="w-4 h-4 text-white" />
                         </div>
-                        <span className="font-bold text-gray-900 text-lg">SmartRecruit</span>
-                    </div>
+                        <span className="font-bold text-gray-900 dark:text-slate-100 text-lg">SmartRecruit</span>
+                    </Link>
 
                     <div className="mb-8">
-                        <h1 className="text-3xl font-extrabold text-gray-900 mb-1">{title}</h1>
-                        <p className="text-gray-500">{subtitle}</p>
+                        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-slate-100 mb-1">{title}</h1>
+                        <p className="text-gray-500 dark:text-slate-300">{subtitle}</p>
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-8 text-gray-900 dark:text-slate-100 transition-colors">
                         {children}
                     </div>
 
-                    <p className="text-center mt-6 text-sm text-gray-500">
+                    <p className="text-center mt-6 text-sm text-gray-500 dark:text-slate-300">
                         {switchLabel}{" "}
                         <Link
                             to={switchLinkTo}
@@ -113,7 +117,7 @@ export function AuthLayout({
                     </p>
 
                     <div className="mt-6 text-center">
-                        <Link to="/" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                        <Link to="/" className="text-xs text-gray-400 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-200 transition-colors">
                             ← Back to role selection
                         </Link>
                     </div>

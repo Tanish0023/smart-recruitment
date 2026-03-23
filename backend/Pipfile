@@ -21,6 +21,7 @@ flower = "==1.0.0"
 djangorestframework = "==3.14.0"
 flake8 = "==7.3.0"
 whitenoise = "==6.5.0"
+sentence-transformers = "==3.4.1"
 
 [dev-packages]
 
