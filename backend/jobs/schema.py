@@ -2,12 +2,20 @@ import graphene
 from graphene_django.types import DjangoObjectType
 from graphql import GraphQLError
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
+from django.db.models import F
+from celery import current_app
 
 from jobs.models import Job, JobApplication, Skill, Category
 from users.decorators import recruiter_with_company_required, user_required, get_user
 from email_service.tasks import send_application_status_email
 
 User = get_user_model()
+
+
+class ApplicantsSortEnum(graphene.Enum):
+    RANKING = "ranking"
+    LATEST = "latest"
 
 
 class CategoryType(DjangoObjectType):
@@ -93,6 +101,7 @@ class JobQuery(graphene.ObjectType):
     job_applicants = graphene.List(
         JobApplicationType,
         job_id=graphene.Int(required=True),
+        sort_by=ApplicantsSortEnum(required=False, default_value=ApplicantsSortEnum.RANKING),
     )
 
     # Public jobs
@@ -126,7 +135,7 @@ class JobQuery(graphene.ObjectType):
 
     # Recruiter checking applicants
     @recruiter_with_company_required
-    def resolve_job_applicants(self, info, job_id):
+    def resolve_job_applicants(self, info, job_id, sort_by=ApplicantsSortEnum.RANKING):
         user = info.context.user
 
         job = Job.objects.filter(
@@ -137,7 +146,13 @@ class JobQuery(graphene.ObjectType):
         if not job:
             raise GraphQLError("Job not found or access denied")
 
-        return JobApplication.objects.filter(job=job)
+        queryset = JobApplication.objects.select_related("applicant", "resume").filter(job=job)
+
+        selected_sort = getattr(sort_by, "value", sort_by)
+        if selected_sort == ApplicantsSortEnum.LATEST.value:
+            return queryset.order_by("-applied_at")
+
+        return queryset.order_by(F("score").desc(nulls_last=True), "-applied_at")
 
 
 # =====================================================
@@ -313,10 +328,21 @@ class ApplyToJob(graphene.Mutation):
         if already_applied:
             raise GraphQLError("Already applied to this job")
 
-        application = JobApplication.objects.create(
-            job=job,
-            applicant=user,
-            resume=user.primary_resume,
+        try:
+            with transaction.atomic():
+                application = JobApplication.objects.create(
+                    job=job,
+                    applicant=user,
+                    resume=user.primary_resume,
+                )
+        except IntegrityError:
+            raise GraphQLError("Already applied to this job")
+
+        # Recompute ranking for this job after each new application.
+        current_app.send_task(
+            "resumes.tasks.scoring_resume",
+            args=[job.id, application.id],
+            queue="resume_parsing",
         )
 
         return ApplyToJob(application=application)

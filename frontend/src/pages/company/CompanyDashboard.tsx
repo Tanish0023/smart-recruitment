@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client/react";
 import {
     Briefcase, Plus, Pencil, Trash2, Users, ToggleLeft, ToggleRight,
@@ -46,8 +47,11 @@ interface Category {
 }
 interface Applicant {
     id: string; status: string; appliedAt: string; resumeUrl: string;
+    score?: number | null;
     applicant: { id: string; username: string; email: string };
 }
+
+type ApplicantsSortMode = "RANKING" | "LATEST";
 
 interface CreateJobData {
     createJob: {
@@ -79,6 +83,7 @@ interface UpdateApplicationStatusData {
 type Tab = "jobs" | "post" | "applicants";
 
 const DASHBOARD_TAB_STORAGE_KEY = "company-dashboard-active-tab";
+const DASHBOARD_SELECTED_JOB_STORAGE_KEY = "company-dashboard-selected-job-id";
 const DASHBOARD_TABS: Tab[] = ["jobs", "post", "applicants"];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -373,6 +378,7 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
 
 /* ─── Main Component ─────────────────────────────────── */
 export default function CompanyDashboard() {
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<Tab>(() => {
         if (typeof window === "undefined") {
             return "jobs";
@@ -383,13 +389,25 @@ export default function CompanyDashboard() {
     });
     const [editJob, setEditJob] = useState<Job | null>(null);
     const [deleteJob, setDeleteJobState] = useState<Job | null>(null);
-    const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+    const [selectedJobId, setSelectedJobId] = useState<string | null>(() => {
+        if (typeof window === "undefined") {
+            return null;
+        }
+        return window.localStorage.getItem(DASHBOARD_SELECTED_JOB_STORAGE_KEY);
+    });
+    const [applicantsSortMode, setApplicantsSortMode] = useState<ApplicantsSortMode>("RANKING");
     const [successMsg, setSuccessMsg] = useState("");
     const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({});
 
     useEffect(() => {
         window.localStorage.setItem(DASHBOARD_TAB_STORAGE_KEY, activeTab);
     }, [activeTab]);
+
+    useEffect(() => {
+        if (selectedJobId) {
+            window.localStorage.setItem(DASHBOARD_SELECTED_JOB_STORAGE_KEY, selectedJobId);
+        }
+    }, [selectedJobId]);
 
     /* ── Queries ── */
     const { data: jobsData, loading: jobsLoading, refetch: refetchJobs } =
@@ -399,7 +417,10 @@ export default function CompanyDashboard() {
     const defaultSelectedJobId = selectedJobId ?? jobsData?.companyJobs?.[0]?.id ?? null;
     const { data: applicantsData, loading: applicantsLoading } =
         useQuery<{ jobApplicants: Applicant[] }>(GET_JOB_APPLICANTS, {
-            variables: { jobId: Number(defaultSelectedJobId) },
+            variables: {
+                jobId: Number(defaultSelectedJobId),
+                sortBy: applicantsSortMode,
+            },
             skip: !defaultSelectedJobId,
         });
 
@@ -495,7 +516,13 @@ export default function CompanyDashboard() {
                                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
-                                                <h3 className="font-semibold text-gray-900 text-lg truncate">{job.title}</h3>
+                                                <button
+                                                    onClick={() => navigate(`/jobs/${job.id}`)}
+                                                    className="font-semibold text-indigo-600 text-lg truncate hover:text-indigo-600/80 cursor-pointer transition-colors text-left flex-1"
+                                                    title="View job listing"
+                                                >
+                                                    {job.title}
+                                                </button>
                                                 <span className={`flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${job.isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
                                                     }`}>
                                                     {job.isActive ? "Active" : "Inactive"}
@@ -614,6 +641,34 @@ export default function CompanyDashboard() {
                             </div>
 
                             {defaultSelectedJobId && (
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-sm font-medium text-gray-700">See applicants by:</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setApplicantsSortMode("RANKING")}
+                                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                                            applicantsSortMode === "RANKING"
+                                                ? "bg-indigo-600 text-white border-indigo-600"
+                                                : "bg-white text-gray-600 border-gray-200 hover:border-indigo-400"
+                                        }`}
+                                    >
+                                        Ranking
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setApplicantsSortMode("LATEST")}
+                                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                                            applicantsSortMode === "LATEST"
+                                                ? "bg-indigo-600 text-white border-indigo-600"
+                                                : "bg-white text-gray-600 border-gray-200 hover:border-indigo-400"
+                                        }`}
+                                    >
+                                        Latest application
+                                    </button>
+                                </div>
+                            )}
+
+                            {defaultSelectedJobId && (
                                 <div className="mt-8 space-y-4">
                                     {applicantsLoading && (
                                         <div className="flex items-center gap-2 text-gray-400 py-8 justify-center">
@@ -634,6 +689,9 @@ export default function CompanyDashboard() {
                                                 <div className="flex-1 min-w-0">
                                                     <p className="font-semibold text-gray-900">{app.applicant.username}</p>
                                                     <p className="text-sm text-gray-500">{app.applicant.email}</p>
+                                                    <p className="text-xs text-gray-600 mt-1">
+                                                        Match score: <span className="font-semibold text-indigo-700">{typeof app.score === "number" ? `${Math.round(app.score * 100)}%` : "Pending"}</span>
+                                                    </p>
                                                     {app.resumeUrl && (
                                                         <a
                                                             href={app.resumeUrl}

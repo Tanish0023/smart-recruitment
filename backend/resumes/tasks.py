@@ -1,6 +1,6 @@
 from celery import shared_task
 from .models import Resume
-from jobs.models import Skill
+from jobs.models import Skill, Job, JobApplication
 from django.utils import timezone
 from io import BytesIO
 from urllib.request import urlopen
@@ -16,8 +16,20 @@ try:
 except ImportError:
     SentenceSegmenter = None
 
+try:
+    from sentence_transformers import SentenceTransformer, util
+except ImportError:
+    SentenceTransformer = None
+    util = None
 
-nlp = spacy.load("en_core_web_sm")
+try:
+    nlp = spacy.load("en_core_web_sm")
+except:
+    from spacy.cli import download
+    download("en_core_web_sm")
+    nlp = spacy.load("en_core_web_sm")
+
+model = SentenceTransformer("all-MiniLM-L6-v2") if SentenceTransformer is not None else None
 
 
 def split_on_boundaries(doc):
@@ -497,7 +509,89 @@ def extract_profile(text):
         "country": country,
     }
 
+def get_skill_category_map():
+    return {
+        s.name: s.category.name if s.category else None
+        for s in Skill.objects.select_related("category")
+    }
 
+def calculate_skill_score(job_skills, resume_data):
+    resume_skills = set(resume_data.get("skills", []))
+
+    if not job_skills:
+        return 0
+
+    matched = job_skills & resume_skills
+
+    return len(matched) / len(job_skills)
+
+def calculate_category_score(job_categories, resume_data, skill_map):
+    resume_skills = resume_data.get("skills", [])
+
+    if not job_categories or not resume_skills:
+        return 0
+
+    matched = 0
+
+    for skill in resume_skills:
+        if skill_map.get(skill) in job_categories:
+            matched += 1
+
+    return matched / len(resume_skills)
+
+VERB_STRENGTH = {
+    "led": 1.0,
+    "architected": 1.0,
+    "designed": 0.9,
+    "built": 0.8,
+    "developed": 0.8,
+    "implemented": 0.7,
+    "worked": 0.4,
+}
+
+def calculate_experience_score(resume_data):
+    text = resume_data.get("sections", {}).get("experience", "")
+
+    if not text:
+        return 0
+
+    score = 0.5
+    text_lower = text.lower()
+
+    for word, val in VERB_STRENGTH.items():
+        if word in text_lower:
+            score = max(score, val)
+
+    if re.search(r"\d+%", text):
+        score += 0.1
+
+    return min(score, 1.0)
+
+def calculate_semantic_score(resume_data, jd_emb):
+    if model is None or util is None or jd_emb is None:
+        return 0
+
+    experience_text = resume_data.get("sections", {}).get("experience", "")
+    projects_text = resume_data.get("sections", {}).get("projects", "")
+
+    combined = experience_text + " " + projects_text
+
+    if not combined.strip():
+        return 0
+
+    resume_emb = model.encode(combined, convert_to_tensor=True)
+
+    score = util.cos_sim(jd_emb, resume_emb).item()
+
+    return max(0, min(score, 1))
+
+def calculate_final_score(skill, category, experience, semantic):
+    return (
+        0.5 * skill +        # MOST IMPORTANT
+        0.2 * category +
+        0.15 * experience +
+        0.15 * semantic      # cosine similarity
+    )
 
 @shared_task(queue='resume_parsing')
 def resume_parsing(resume_id, user_id=None, update_basic_details=True):
@@ -573,3 +667,75 @@ def resume_parsing(resume_id, user_id=None, update_basic_details=True):
         resume.status = Resume.STATUS_CHOICES.FAILED
         resume.save(update_fields=["status"])
         raise e
+
+@shared_task(queue="resume_parsing")
+def scoring_resume(job_id, application_id=None):
+    job = Job.objects.get(id=job_id)
+    jd = job.description
+
+    applications = JobApplication.objects.select_related(
+        "resume",
+        "applicant__primary_resume",
+    ).filter(job_id=job_id)
+
+    if application_id is not None:
+        applications = applications.filter(id=application_id)
+
+    skill_map = get_skill_category_map()
+    job_skill_names = set(job.skills.values_list("name", flat=True))
+    job_category_names = set(job.categories.values_list("name", flat=True))
+
+    jd_emb = model.encode(jd, convert_to_tensor=True) if model is not None else None
+    def compute_application_score(application):
+        # Prefer resume snapshot captured at application time; fallback to latest profile resume.
+        resume = application.resume or application.applicant.primary_resume
+
+        # ❌ no resume or parsing failed
+        if not resume or not resume.parsed_data:
+            return 0
+
+        data = resume.parsed_data
+
+        # -----------------------------
+        # CALCULATE ALL SCORES
+        # -----------------------------
+        skill_score = calculate_skill_score(job_skill_names, data)
+        category_score = calculate_category_score(job_category_names, data, skill_map)
+        experience_score = calculate_experience_score(data)
+        semantic_score = calculate_semantic_score(data, jd_emb)
+
+        # -----------------------------
+        # GATING (IMPORTANT)
+        # -----------------------------
+        if skill_score < 0.3:
+            final_score = skill_score * 0.5
+        else:
+            final_score = calculate_final_score(
+                skill_score,
+                category_score,
+                experience_score,
+                semantic_score
+            )
+
+        return round(final_score, 3)
+
+    if application_id is not None:
+        application = applications.first()
+        if not application:
+            return
+
+        new_score = compute_application_score(application)
+        if application.score != new_score:
+            application.score = new_score
+            application.save(update_fields=["score"])
+        return
+
+    score_updates = []
+    for application in applications:
+        new_score = compute_application_score(application)
+        if application.score != new_score:
+            application.score = new_score
+            score_updates.append(application)
+
+    if score_updates:
+        JobApplication.objects.bulk_update(score_updates, ["score"])

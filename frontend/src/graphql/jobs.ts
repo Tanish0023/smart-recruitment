@@ -131,9 +131,10 @@ export const GET_MY_APPLICATIONS = gql`
 `;
 
 export const GET_JOB_APPLICANTS = gql`
-  query GetJobApplicants($jobId: Int!) {
-    jobApplicants(jobId: $jobId) {
+  query GetJobApplicants($jobId: Int!, $sortBy: ApplicantsSortEnum!) {
+    jobApplicants(jobId: $jobId, sortBy: $sortBy) {
       id
+      score
       status
       appliedAt
       resumeUrl

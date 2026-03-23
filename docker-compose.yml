@@ -30,6 +30,7 @@ services:
 
   backend:
     build: ./backend
+    image: smart-recruitment-backend:latest
     container_name: django_backend
     restart: unless-stopped
     command: sh entrypoint.sh
@@ -49,7 +50,7 @@ services:
         condition: service_healthy
 
   celery:
-    build: ./backend
+    image: smart-recruitment-backend:latest
     container_name: celery_worker
     restart: unless-stopped
     command: celery -A core worker -l info -Q resume_parsing --concurrency=2 --without-gossip --without-mingle
@@ -67,7 +68,7 @@ services:
         condition: service_healthy
 
   celery_email:
-    build: ./backend
+    image: smart-recruitment-backend:latest
     container_name: celery_email_worker
     restart: unless-stopped
     command: celery -A core worker -l info -Q email_service --concurrency=2 --without-gossip --without-mingle
@@ -85,7 +86,7 @@ services:
         condition: service_healthy
 
   flower:
-    build: ./backend
+    image: smart-recruitment-backend:latest
     container_name: flower
     restart: unless-stopped
     command: celery -A core flower --port=5555
