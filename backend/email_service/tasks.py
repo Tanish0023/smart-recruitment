@@ -144,3 +144,34 @@ def send_application_status_email(
         user_email=user_email,
         category="application-status",
     )
+
+
+@shared_task(queue="email_service")
+def send_otp_verification_email(
+    user_email: str,
+    recipient_name: str,
+    otp_code: str,
+    entity_type: str = "user",
+) -> None:
+    normalized_entity = (entity_type or "user").strip().lower()
+    label = "Company" if normalized_entity == "company" else "Account"
+
+    subject = f"{label} verification OTP"
+    html_message = render_to_string(
+        "email_service/otp_verification.html",
+        {
+            "recipient_name": recipient_name,
+            "otp_code": otp_code,
+            "entity_label": label,
+            "current_year": timezone.now().year,
+        },
+    )
+    message = strip_tags(html_message)
+
+    _send_email(
+        subject=subject,
+        html_message=html_message,
+        message=message,
+        user_email=user_email,
+        category="otp-verification",
+    )

@@ -7,9 +7,11 @@ import type { ReactNode } from "react";
 
 import ApplicantLogin from "@/pages/applicant/ApplicantLogin";
 import ApplicantRegister from "@/pages/applicant/ApplicantRegister";
+import ApplicantVerifyOtp from "@/pages/applicant/ApplicantVerifyOtp";
 import ApplicantDashboard from "@/pages/applicant/ApplicantDashboard";
 import CompanyLogin from "@/pages/company/CompanyLogin";
 import CompanyRegister from "@/pages/company/CompanyRegister";
+import CompanyVerifyOtp from "@/pages/company/CompanyVerifyOtp";
 import CompanyDashboard from "@/pages/company/CompanyDashboard";
 import NewLandingPage from "./pages/landing/NewLandingPage/NewLandingPage";
 import JobsPage from "@/pages/jobs/JobsPage";
@@ -54,6 +56,7 @@ function App() {
             {/* Applicant auth */}
             <Route path="/applicant/login" element={<RedirectIfAuthenticated><ApplicantLogin /></RedirectIfAuthenticated>} />
             <Route path="/applicant/register" element={<RedirectIfAuthenticated><ApplicantRegister /></RedirectIfAuthenticated>} />
+            <Route path="/applicant/verify-otp" element={<RedirectIfAuthenticated><ApplicantVerifyOtp /></RedirectIfAuthenticated>} />
 
             {/* Applicant dashboard (auth guarded) */}
             <Route
@@ -68,6 +71,7 @@ function App() {
             {/* Company / Recruiter auth */}
             <Route path="/company/login" element={<CompanyLogin />} />
             <Route path="/company/register" element={<CompanyRegister />} />
+            <Route path="/company/verify-otp" element={<CompanyVerifyOtp />} />
 
             {/* Company dashboard (recruiter only, auth guarded) */}
             <Route

@@ -17,7 +17,10 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
-import { CREATE_COMPANY, REGISTER_USER } from "@/graphql/auth";
+import {
+    CREATE_COMPANY,
+    REGISTER_USER,
+} from "@/graphql/auth";
 
 const schema = z
     .object({
@@ -67,7 +70,11 @@ export default function CompanyRegister() {
 
     const [registerUser, { loading: registering }] = useMutation(REGISTER_USER, {
         onCompleted() {
-            navigate("/company/login");
+            const values = form.getValues();
+            const email = values.email.trim().toLowerCase();
+            sessionStorage.setItem("otp_company_email", email);
+            sessionStorage.setItem("otp_recruiter_email", email);
+            navigate("/company/verify-otp", { state: { recruiterEmail: email, companyEmail: email } });
         },
         onError(err) {
             setServerError(err.message);
@@ -99,6 +106,7 @@ export default function CompanyRegister() {
         createCompany({
             variables: {
                 name: values.companyName,
+                email: values.email,
                 website: values.website || null,
             },
         });

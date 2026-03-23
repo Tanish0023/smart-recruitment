@@ -7,7 +7,7 @@ from django.db.models import F
 from celery import current_app
 
 from jobs.models import Job, JobApplication, Skill, Category
-from users.decorators import recruiter_with_company_required, user_required, get_user
+from users.decorators import recruiter_with_company_required, user_required, get_user, ensure_verified_user
 from email_service.tasks import send_application_status_email
 
 User = get_user_model()
@@ -185,6 +185,7 @@ class CreateJob(graphene.Mutation):
         user = get_user(info)
         if not user:
             raise GraphQLError("Authentication required")
+        ensure_verified_user(user)
         if not user.is_recruiter:
             raise GraphQLError("Recruiter access required")
         if not user.company:
@@ -229,6 +230,7 @@ class UpdateJob(graphene.Mutation):
         user = get_user(info)
         if not user:
             raise GraphQLError("Authentication required")
+        ensure_verified_user(user)
         if not user.is_recruiter:
             raise GraphQLError("Recruiter access required")
         if not user.company:
@@ -276,6 +278,7 @@ class DeleteJob(graphene.Mutation):
         user = get_user(info)
         if not user:
             raise GraphQLError("Authentication required")
+        ensure_verified_user(user)
         if not user.is_recruiter:
             raise GraphQLError("Recruiter access required")
         if not user.company:
@@ -304,6 +307,7 @@ class ApplyToJob(graphene.Mutation):
         user = get_user(info)
         if not user:
             raise GraphQLError("Authentication required")
+        ensure_verified_user(user)
         if user.is_recruiter:
             raise GraphQLError("Applicant access required")
 
@@ -360,6 +364,7 @@ class UpdateApplicationStatus(graphene.Mutation):
         user = get_user(info)
         if not user:
             raise GraphQLError("Authentication required")
+        ensure_verified_user(user)
         if not user.is_recruiter:
             raise GraphQLError("Recruiter access required")
         if not user.company:

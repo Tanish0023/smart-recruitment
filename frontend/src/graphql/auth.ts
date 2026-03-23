@@ -82,10 +82,12 @@ export const REGISTER_USER = gql`
       isRecruiter: $isRecruiter
       companyId: $companyId
     ) {
+      message
       user {
         id
         username
         email
+        isVerified
         firstName
         lastName
         isRecruiter
@@ -109,13 +111,62 @@ export const REGISTER_USER = gql`
 `;
 
 export const CREATE_COMPANY = gql`
-  mutation CreateCompany($name: String!, $website: String) {
-    createCompany(name: $name, website: $website) {
+  mutation CreateCompany($name: String!, $email: String!, $website: String) {
+    createCompany(name: $name, email: $email, website: $website) {
+      message
       company {
         id
         name
+        email
         website
+        isVerified
       }
+    }
+  }
+`;
+
+export const VERIFY_USER_OTP = gql`
+  mutation VerifyUserOtp($email: String!, $otp: String!) {
+    verifyUserOtp(email: $email, otp: $otp) {
+      success
+      message
+      user {
+        id
+        email
+        isVerified
+      }
+    }
+  }
+`;
+
+export const RESEND_USER_OTP = gql`
+  mutation ResendUserOtp($email: String!) {
+    resendUserOtp(email: $email) {
+      success
+      message
+    }
+  }
+`;
+
+export const VERIFY_COMPANY_OTP = gql`
+  mutation VerifyCompanyOtp($email: String!, $otp: String!) {
+    verifyCompanyOtp(email: $email, otp: $otp) {
+      success
+      message
+      company {
+        id
+        email
+        isVerified
+      }
+    }
+  }
+`;
+
+export const RESEND_COMPANY_OTP = gql`
+  mutation ResendCompanyOtp($email: String!) {
+    resendCompanyOtp(email: $email) {
+      success
+      message
     }
   }
 `;

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -121,15 +121,23 @@ export default function CompanyLogin() {
                     />
 
                     {serverError && (
-                        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                            {serverError}
+                        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 space-y-2">
+                            <p>{serverError}</p>
+                            {serverError.toLowerCase().includes("not verified") && (
+                                <Link
+                                    to="/company/verify-otp"
+                                    className="inline-block text-emerald-700 underline font-medium"
+                                >
+                                    Go to OTP verification
+                                </Link>
+                            )}
                         </div>
                     )}
 
                     <Button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-md hover:shadow-lg transition-all"
+                        className="w-full bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-md hover:shadow-lg transition-all"
                     >
                         {loading ? (
                             <span className="flex items-center gap-2">

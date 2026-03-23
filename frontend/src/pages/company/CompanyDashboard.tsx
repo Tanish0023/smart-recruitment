@@ -363,7 +363,7 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                         <Button
                             type="submit"
                             disabled={loading || !isValid || !dirty}
-                            className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-8"
+                            className="bg-linear-to-r from-indigo-600 to-violet-600 text-white px-8"
                         >
                             {loading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
                             {submitLabel}
@@ -454,21 +454,21 @@ export default function CompanyDashboard() {
                     <TabsList className="flex flex-col h-auto bg-transparent gap-1 p-0">
                         <TabsTrigger
                             value="jobs"
-                            className="pl-10 justify-start gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 hover:bg-gray-100 transition-all border-none shadow-none w-full"
+                            className="pl-10 justify-start gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 dark:data-[state=active]:bg-slate-800 dark:data-[state=active]:text-indigo-300 hover:bg-gray-100 dark:hover:bg-slate-800/70 data-[state=active]:shadow-none transition-all border-none shadow-none w-full"
                         >
                             <Briefcase className="w-4 h-4" />
                             <span>My Jobs</span>
                         </TabsTrigger>
                         <TabsTrigger
                             value="applicants"
-                            className="justify-start gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 hover:bg-gray-100 transition-all border-none shadow-none w-full"
+                            className="justify-start gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 dark:data-[state=active]:bg-slate-800 dark:data-[state=active]:text-indigo-300 hover:bg-gray-100 dark:hover:bg-slate-800/70 data-[state=active]:shadow-none transition-all border-none shadow-none w-full"
                         >
                             <Users className="w-4 h-4" />
                             <span>Applicants</span>
                         </TabsTrigger>
                         <TabsTrigger
                             value="post"
-                            className="justify-start mt-5 gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 hover:bg-gray-100 transition-all border-none shadow-none w-full ring-indigo-700 ring-1 text-indigo-700"
+                            className="justify-start mt-5 gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-indigo-700 dark:text-indigo-300 data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 dark:data-[state=active]:bg-slate-800 dark:data-[state=active]:text-indigo-300 hover:bg-gray-100 dark:hover:bg-slate-800/70 data-[state=active]:shadow-none transition-all border-none shadow-none w-full ring-indigo-700 dark:ring-indigo-400 ring-1"
                         >
                             <Plus className="w-4 h-4" />
                             <span>Post a Job</span>
@@ -487,10 +487,10 @@ export default function CompanyDashboard() {
                     <TabsContent value="jobs" className="mt-0">
                         <div className="space-y-4">
                             <div className="flex items-center justify-between mb-6">
-                                <h1 className="text-2xl font-bold text-gray-900">My Jobs</h1>
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">My Jobs</h1>
                                 <Button
                                     onClick={() => setActiveTab("post")}
-                                    className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white gap-2"
+                                    className="bg-linear-to-r from-indigo-600 to-violet-600 text-white gap-2"
                                 >
                                     <Plus className="w-4 h-4" /> Post New Job
                                 </Button>
@@ -498,37 +498,39 @@ export default function CompanyDashboard() {
 
                             {/* ... existing jobs code ... */}
                             {jobsLoading && (
-                                <div className="flex items-center gap-2 text-gray-400 py-12 justify-center">
+                                <div className="flex items-center gap-2 text-gray-400 dark:text-gray-500 py-12 justify-center">
                                     <Loader2 className="w-5 h-5 animate-spin" /> Loading jobs…
                                 </div>
                             )}
 
                             {!jobsLoading && jobs.length === 0 && (
-                                <div className="flex flex-col items-center py-16 gap-3 text-gray-400">
-                                    <Briefcase className="w-10 h-10 text-gray-300" />
-                                    <p className="font-medium text-gray-500">No jobs yet</p>
-                                    <Button onClick={() => setActiveTab("post")} variant="outline" size="sm">Post your first job</Button>
+                                <div className="flex flex-col items-center py-16 gap-3 text-gray-400 dark:text-gray-500">
+                                    <Briefcase className="w-10 h-10 text-gray-300 dark:text-gray-600" />
+                                    <p className="font-medium text-gray-500 dark:text-gray-400">No jobs yet</p>
+                                    <Button onClick={() => setActiveTab("post")} variant="outline" size="sm" className="dark:border-slate-700 dark:text-gray-200 dark:hover:bg-slate-800">
+                                        Post your first job
+                                    </Button>
                                 </div>
                             )}
 
                             {jobs.map((job) => (
-                                <div key={job.id} className="bg-white border border-gray-200 rounded-2xl p-5 hover:shadow-sm transition-shadow">
+                                <div key={job.id} className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl p-5 hover:shadow-sm transition-shadow">
                                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     onClick={() => navigate(`/jobs/${job.id}`)}
-                                                    className="font-semibold text-indigo-600 text-lg truncate hover:text-indigo-600/80 cursor-pointer transition-colors text-left flex-1"
+                                                    className="font-semibold text-indigo-600 dark:text-indigo-300 text-lg truncate hover:text-indigo-600/80 dark:hover:text-indigo-200 cursor-pointer transition-colors text-left flex-1"
                                                     title="View job listing"
                                                 >
                                                     {job.title}
                                                 </button>
-                                                <span className={`flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${job.isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
+                                                <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${job.isActive ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300" : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-300"
                                                     }`}>
                                                     {job.isActive ? "Active" : "Inactive"}
                                                 </span>
                                             </div>
-                                            <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-500">
+                                            <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-500 dark:text-gray-400">
                                                 {job.location && (
                                                     <span className="flex items-center gap-1">
                                                         <MapPin className="w-3.5 h-3.5" /> {job.location}
@@ -539,22 +541,22 @@ export default function CompanyDashboard() {
                                                         <DollarSign className="w-3.5 h-3.5" /> {job.salaryRange}
                                                     </span>
                                                 )}
-                                                <span className="text-gray-400 text-xs">
+                                                <span className="text-gray-400 dark:text-gray-500 text-xs">
                                                     Posted {new Date(job.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                                                 </span>
                                             </div>
-                                            <p className="text-sm text-gray-500 mt-2 line-clamp-2">{job.description}</p>
-                                            <p className="text-xs text-gray-500 mt-2">
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">{job.description}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                                                 Min Experience: <span className="font-medium">{job.minimumExperienceRequired} years</span>
                                             </p>
                                         </div>
 
                                         {/* Actions */}
-                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                        <div className="flex items-center gap-2 shrink-0">
                                             <button
                                                 title={job.isActive ? "Deactivate" : "Activate"}
                                                 onClick={() => updateJob({ variables: { jobId: Number(job.id), isActive: !job.isActive } })}
-                                                className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
+                                                className="p-2 rounded-xl text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
                                             >
                                                 {job.isActive
                                                     ? <ToggleRight className="w-5 h-5 text-emerald-600" />
@@ -563,21 +565,21 @@ export default function CompanyDashboard() {
                                             <button
                                                 title="View applicants"
                                                 onClick={() => { setSelectedJobId(job.id); setActiveTab("applicants"); }}
-                                                className="p-2 rounded-xl text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                                className="p-2 rounded-xl text-gray-500 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
                                             >
                                                 <Users className="w-5 h-5" />
                                             </button>
                                             <button
                                                 title="Edit"
                                                 onClick={() => setEditJob(job)}
-                                                className="p-2 rounded-xl text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                                className="p-2 rounded-xl text-gray-500 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
                                             >
                                                 <Pencil className="w-5 h-5" />
                                             </button>
                                             <button
                                                 title="Delete"
                                                 onClick={() => setDeleteJobState(job)}
-                                                className="p-2 rounded-xl text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                                className="p-2 rounded-xl text-gray-500 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-300 transition-colors"
                                             >
                                                 <Trash2 className="w-5 h-5" />
                                             </button>
@@ -617,10 +619,10 @@ export default function CompanyDashboard() {
 
                     <TabsContent value="applicants" className="mt-0">
                         <div className="space-y-4">
-                            <h1 className="text-2xl font-bold text-gray-900 mb-6">Applicants</h1>
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Applicants</h1>
                             {/* Job selector */}
                             <div>
-                                <label className="text-sm font-medium text-gray-700 block mb-2">Select a Job to View Applicants</label>
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Select a Job to View Applicants</label>
                                 <div className="flex flex-wrap gap-2">
                                     {jobs.map((job) => (
                                         <button
@@ -628,7 +630,7 @@ export default function CompanyDashboard() {
                                             onClick={() => setSelectedJobId(job.id)}
                                             className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${defaultSelectedJobId === job.id
                                                 ? "bg-indigo-600 text-white border-indigo-600"
-                                                : "bg-white text-gray-600 border-gray-200 hover:border-indigo-400"
+                                                : "bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-200 border-gray-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500"
                                                 }`}
                                         >
                                             {job.title}
@@ -642,14 +644,14 @@ export default function CompanyDashboard() {
 
                             {defaultSelectedJobId && (
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <span className="text-sm font-medium text-gray-700">See applicants by:</span>
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">See applicants by:</span>
                                     <button
                                         type="button"
                                         onClick={() => setApplicantsSortMode("RANKING")}
                                         className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
                                             applicantsSortMode === "RANKING"
                                                 ? "bg-indigo-600 text-white border-indigo-600"
-                                                : "bg-white text-gray-600 border-gray-200 hover:border-indigo-400"
+                                                : "bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-200 border-gray-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500"
                                         }`}
                                     >
                                         Ranking
@@ -660,7 +662,7 @@ export default function CompanyDashboard() {
                                         className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
                                             applicantsSortMode === "LATEST"
                                                 ? "bg-indigo-600 text-white border-indigo-600"
-                                                : "bg-white text-gray-600 border-gray-200 hover:border-indigo-400"
+                                                : "bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-200 border-gray-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500"
                                         }`}
                                     >
                                         Latest application
@@ -685,24 +687,24 @@ export default function CompanyDashboard() {
                                         const currentStatus = (statusOverrides[app.id] ?? app.status).toLowerCase();
                                         const s = STATUS_CONFIG[currentStatus] ?? STATUS_CONFIG.applied;
                                         return (
-                                            <div key={app.id} className="bg-white border border-gray-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4 hover:shadow-sm transition-shadow">
+                                            <div key={app.id} className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4 hover:shadow-sm transition-shadow">
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="font-semibold text-gray-900">{app.applicant.username}</p>
-                                                    <p className="text-sm text-gray-500">{app.applicant.email}</p>
-                                                    <p className="text-xs text-gray-600 mt-1">
-                                                        Match score: <span className="font-semibold text-indigo-700">{typeof app.score === "number" ? `${Math.round(app.score * 100)}%` : "Pending"}</span>
+                                                    <p className="font-semibold text-gray-900 dark:text-gray-100">{app.applicant.username}</p>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400">{app.applicant.email}</p>
+                                                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                                        Match score: <span className="font-semibold text-indigo-700 dark:text-indigo-300">{typeof app.score === "number" ? `${Math.round(app.score * 100)}%` : "Pending"}</span>
                                                     </p>
                                                     {app.resumeUrl && (
                                                         <a
                                                             href={app.resumeUrl}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="text-xs text-indigo-600 hover:underline mt-1 inline-block"
+                                                            className="text-xs text-indigo-600 dark:text-indigo-300 hover:underline mt-1 inline-block"
                                                         >
                                                             View Resume →
                                                         </a>
                                                     )}
-                                                    <p className="text-xs text-gray-400 mt-1">
+                                                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                                                         Applied {new Date(app.appliedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                                                     </p>
                                                 </div>
@@ -729,7 +731,7 @@ export default function CompanyDashboard() {
                                                                 }
                                                             });
                                                         }}
-                                                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                                        className="text-xs border border-gray-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                                                     >
                                                         {STATUS_OPTIONS.map((s) => (
                                                             <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>

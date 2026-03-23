@@ -26,7 +26,7 @@ const schema = z
             .min(3, "Username must be at least 3 characters")
             .max(30, "Username too long")
             .regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers and underscores"),
-        email: z.string().email("Enter a valid email address"),
+        email: z.email("Enter a valid email address"),
         password: z
             .string()
             .min(8, "Password must be at least 8 characters")
@@ -54,7 +54,9 @@ export default function ApplicantRegister() {
 
     const [registerMutation, { loading }] = useMutation(REGISTER_USER, {
         onCompleted() {
-            navigate("/applicant/login");
+            const email = form.getValues("email");
+            sessionStorage.setItem("otp_applicant_email", email);
+            navigate("/applicant/verify-otp", { state: { email } });
         },
         onError(err: Error) {
             setServerError(err.message);
@@ -186,7 +188,7 @@ export default function ApplicantRegister() {
                     <Button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold shadow-md hover:shadow-lg transition-all"
+                        className="w-full bg-linear-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold shadow-md hover:shadow-lg transition-all"
                     >
                         {loading ? (
                             <span className="flex items-center gap-2">
