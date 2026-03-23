@@ -14,6 +14,7 @@ from pathlib import Path
 import os
 from datetime import timedelta
 from kombu import Queue
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 import dj_database_url
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
@@ -36,6 +37,17 @@ def get_list_env(name, default=None):
     if not value.strip():
         return default or []
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def ensure_rediss_ssl_param(url):
+    if not url or not url.startswith("rediss://"):
+        return url
+
+    parsed = urlparse(url)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    if "ssl_cert_reqs" not in query:
+        query["ssl_cert_reqs"] = os.getenv("CELERY_REDIS_SSL_CERT_REQS", "CERT_NONE")
+    return urlunparse(parsed._replace(query=urlencode(query)))
 
 sentry_dsn = os.environ.get("SENTRY_DSN")
 
@@ -176,7 +188,7 @@ WSGI_APPLICATION = "core.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-database_url = os.getenv("DATABASE_URL") or os.getenv("NEON_POSTGRES_URL")
+database_url = os.getenv("DATABASE_URL")
 
 if database_url:
     DATABASES = {
@@ -266,10 +278,16 @@ if os.getenv("CLOUDINARY_URL"):
 
 redis_url = os.getenv("REDIS_URL")
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", redis_url or "redis://redis:6379/0")
-CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", redis_url or "redis://redis:6379/1")
+celery_result_backend_env = os.getenv("CELERY_RESULT_BACKEND")
+CELERY_TASK_IGNORE_RESULT = get_bool_env("CELERY_TASK_IGNORE_RESULT", default=True)
+CELERY_RESULT_BACKEND = celery_result_backend_env if celery_result_backend_env else None
+CELERY_BROKER_URL = ensure_rediss_ssl_param(CELERY_BROKER_URL)
+if CELERY_RESULT_BACKEND:
+    CELERY_RESULT_BACKEND = ensure_rediss_ssl_param(CELERY_RESULT_BACKEND)
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_TASK_DEFAULT_QUEUE = "default"
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_TASK_QUEUES = (
     Queue("default"),
     Queue("resume_parsing"),

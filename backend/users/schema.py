@@ -1,5 +1,6 @@
 import graphene
 import logging
+import os
 from pathlib import Path
 from django.db import IntegrityError
 from django.db import transaction
@@ -19,6 +20,11 @@ from jobs.models import Job, JobApplication
 from jobs.models import Skill
 from resumes.models import Resume
 from resumes.tasks import resume_parsing
+
+try:
+    import cloudinary.uploader
+except ImportError:
+    cloudinary = None
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -253,7 +259,28 @@ class UploadPrimaryResume(graphene.Mutation):
         if Path(resume_name).suffix.lower() != ".pdf":
             raise GraphQLError("Only .pdf files are allowed for resume upload")
 
-        resume_obj = Resume.objects.create(file=resume)
+        if os.getenv("CLOUDINARY_URL"):
+            if cloudinary is None:
+                raise GraphQLError("Cloudinary client is not available in this environment")
+
+            upload_result = cloudinary.uploader.upload(
+                resume,
+                resource_type="image",
+                type="upload",
+                folder="media/resumes",
+                allowed_formats=["pdf"],
+            )
+            public_id = upload_result.get("public_id")
+            if not public_id:
+                raise GraphQLError("Cloudinary upload failed: missing public_id")
+
+            uploaded_format = upload_result.get("format") or "pdf"
+            stored_name = f"{public_id}.{uploaded_format}"
+
+            resume_obj = Resume.objects.create(file=stored_name)
+        else:
+            resume_obj = Resume.objects.create(file=resume)
+
         user.primary_resume = resume_obj
         user.save(update_fields=["primary_resume"])
 

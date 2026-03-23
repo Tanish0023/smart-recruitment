@@ -52,7 +52,7 @@ services:
     build: ./backend
     container_name: celery_worker
     restart: unless-stopped
-    command: celery -A core worker -l info -Q resume_parsing
+    command: celery -A core worker -l info -Q resume_parsing --concurrency=2 --without-gossip --without-mingle
     volumes:
       - ./backend:/app
     env_file:
@@ -70,7 +70,7 @@ services:
     build: ./backend
     container_name: celery_email_worker
     restart: unless-stopped
-    command: celery -A core worker -l info -Q email_service
+    command: celery -A core worker -l info -Q email_service --concurrency=2 --without-gossip --without-mingle
     volumes:
       - ./backend:/app
     env_file:
@@ -89,6 +89,8 @@ services:
     container_name: flower
     restart: unless-stopped
     command: celery -A core flower --port=5555
+    profiles:
+      - monitoring
     ports:
       - "5555:5555"
     volumes:
@@ -98,6 +100,9 @@ services:
     environment:
       PYTHONUNBUFFERED: 1
       POSTGRES_HOST: db
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/recruitment_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_REDIS_SSL_CERT_REQS: CERT_NONE
     depends_on:
       - redis
       - celery
