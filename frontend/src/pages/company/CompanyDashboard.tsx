@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
     GET_COMPANY_JOBS, GET_JOB_APPLICANTS,
-    GET_ALL_SKILLS,
+    GET_ALL_SKILLS, GET_ALL_CATEGORIES,
     CREATE_JOB, UPDATE_JOB, DELETE_JOB, UPDATE_APPLICATION_STATUS,
 } from "@/graphql/jobs";
 
@@ -28,6 +28,7 @@ interface Job {
     location?: string | null; salaryRange?: string | null;
     minimumExperienceRequired: number;
     skills: Skill[];
+    categories: Category[];
     isActive: boolean; createdAt: string;
 }
 interface Skill {
@@ -37,6 +38,11 @@ interface Skill {
         id: string;
         name: string;
     } | null;
+}
+interface Category {
+    id: string;
+    name: string;
+    description?: string | null;
 }
 interface Applicant {
     id: string; status: string; appliedAt: string; resumeUrl: string;
@@ -92,6 +98,7 @@ const jobSchema = z.object({
     location: z.string().optional(),
     salaryRange: z.string().optional(),
     minimumExperienceRequired: z.coerce.number().min(0, "Minimum experience must be 0 or greater"),
+    categoryIds: z.array(z.string()).default([]),
     skillIds: z.array(z.string()).default([]),
 });
 
@@ -111,13 +118,15 @@ const validateWithZod = (schema: z.ZodSchema) => (values: unknown) => {
 /* ─── JobForm ────────────────────────────────────────── */
 interface JobFormProps {
     initial?: Partial<JobFormValues>;
+    allCategories: Category[];
     allSkills: Skill[];
     onSubmit: (v: JobFormValues) => void;
     loading: boolean;
     submitLabel?: string;
 }
 
-function JobForm({ initial, allSkills, onSubmit, loading, submitLabel = "Save" }: JobFormProps) {
+function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitLabel = "Save" }: JobFormProps) {
+    const [categorySearch, setCategorySearch] = useState("");
     const [skillSearch, setSkillSearch] = useState("");
 
     const initialValues: JobFormValues = {
@@ -126,6 +135,7 @@ function JobForm({ initial, allSkills, onSubmit, loading, submitLabel = "Save" }
         location: initial?.location ?? "",
         salaryRange: initial?.salaryRange ?? "",
         minimumExperienceRequired: initial?.minimumExperienceRequired ?? 0,
+        categoryIds: initial?.categoryIds ?? [],
         skillIds: initial?.skillIds ?? [],
     };
 
@@ -137,6 +147,17 @@ function JobForm({ initial, allSkills, onSubmit, loading, submitLabel = "Save" }
             enableReinitialize
         >
             {({ isValid, dirty, values, setFieldValue }) => {
+                const normalizedCategoryQuery = categorySearch.trim().toLowerCase();
+                const selectedCategoryIds = new Set(values.categoryIds);
+                const filteredCategories = allCategories
+                    .filter((category) => {
+                        if (!normalizedCategoryQuery) {
+                            return true;
+                        }
+                        return category.name.toLowerCase().includes(normalizedCategoryQuery);
+                    })
+                    .sort((a, b) => a.name.localeCompare(b.name));
+
                 const normalizedQuery = skillSearch.trim().toLowerCase();
                 const selectedSkillIds = new Set(values.skillIds);
                 const filteredSkills = allSkills.filter((skill) => {
@@ -185,6 +206,54 @@ function JobForm({ initial, allSkills, onSubmit, loading, submitLabel = "Save" }
                         </label>
                         <Field as={Input} type="number" min="0" name="minimumExperienceRequired" />
                         <ErrorMessage name="minimumExperienceRequired" component="p" className="text-xs text-red-500 mt-1" />
+                    </div>
+
+                    <div>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">
+                            Job Categories
+                        </label>
+                        <div className="relative mb-2">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <Input
+                                value={categorySearch}
+                                onChange={(e) => setCategorySearch(e.target.value)}
+                                placeholder="Search categories..."
+                                className="pl-9"
+                            />
+                        </div>
+
+                        <div className="max-h-40 overflow-y-auto rounded-xl border border-gray-200 bg-white p-2">
+                            {filteredCategories.length === 0 && (
+                                <p className="text-xs text-gray-500 px-2 py-1">No categories found.</p>
+                            )}
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                                {filteredCategories.map((category) => {
+                                    const checked = selectedCategoryIds.has(category.id);
+                                    return (
+                                        <label
+                                            key={category.id}
+                                            className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50 cursor-pointer"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={(e) => {
+                                                    const next = e.target.checked
+                                                        ? [...values.categoryIds, category.id]
+                                                        : values.categoryIds.filter((id) => id !== category.id);
+                                                    setFieldValue("categoryIds", next);
+                                                }}
+                                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            <span className="text-sm text-gray-700">{category.name}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <p className="text-xs text-gray-500 mt-1">Selected: {values.categoryIds.length}</p>
                     </div>
 
                     <div>
@@ -326,6 +395,7 @@ export default function CompanyDashboard() {
     const { data: jobsData, loading: jobsLoading, refetch: refetchJobs } =
         useQuery<{ companyJobs: Job[] }>(GET_COMPANY_JOBS);
     const { data: skillsData } = useQuery<{ allSkills: Skill[] }>(GET_ALL_SKILLS);
+    const { data: categoriesData } = useQuery<{ allCategories: Category[] }>(GET_ALL_CATEGORIES);
     const defaultSelectedJobId = selectedJobId ?? jobsData?.companyJobs?.[0]?.id ?? null;
     const { data: applicantsData, loading: applicantsLoading } =
         useQuery<{ jobApplicants: Applicant[] }>(GET_JOB_APPLICANTS, {
@@ -352,6 +422,7 @@ export default function CompanyDashboard() {
 
     const jobs = jobsData?.companyJobs ?? [];
     const allSkills = skillsData?.allSkills ?? [];
+    const allCategories = categoriesData?.allCategories ?? [];
     const applicants = applicantsData?.jobApplicants ?? [];
 
     return (
@@ -495,6 +566,7 @@ export default function CompanyDashboard() {
                             <h1 className="text-2xl font-bold text-gray-900 mb-6">Post a New Job</h1>
                             <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
                                 <JobForm
+                                    allCategories={allCategories}
                                     allSkills={allSkills}
                                     loading={creating}
                                     submitLabel="Post Job"
@@ -506,6 +578,7 @@ export default function CompanyDashboard() {
                                                 location: v.location || null,
                                                 salaryRange: v.salaryRange || null,
                                                 minimumExperienceRequired: Number(v.minimumExperienceRequired || 0),
+                                                categories: (v.categoryIds ?? []).map((categoryId) => Number(categoryId)),
                                                 skills: (v.skillIds ?? []).map((skillId) => Number(skillId)),
                                             },
                                         })
@@ -627,6 +700,7 @@ export default function CompanyDashboard() {
                         </DialogHeader>
                         {editJob && (
                             <JobForm
+                                allCategories={allCategories}
                                 allSkills={allSkills}
                                 initial={{
                                     title: editJob.title,
@@ -634,6 +708,7 @@ export default function CompanyDashboard() {
                                     location: editJob.location ?? undefined,
                                     salaryRange: editJob.salaryRange ?? undefined,
                                     minimumExperienceRequired: editJob.minimumExperienceRequired,
+                                    categoryIds: (editJob.categories ?? []).map((category) => category.id),
                                     skillIds: (editJob.skills ?? []).map((skill) => skill.id),
                                 }}
                                 loading={updating}
@@ -647,6 +722,7 @@ export default function CompanyDashboard() {
                                             location: v.location || null,
                                             salaryRange: v.salaryRange || null,
                                             minimumExperienceRequired: Number(v.minimumExperienceRequired || 0),
+                                            categories: (v.categoryIds ?? []).map((categoryId) => Number(categoryId)),
                                             skills: (v.skillIds ?? []).map((skillId) => Number(skillId)),
                                         },
                                     })

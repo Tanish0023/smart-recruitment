@@ -47,6 +47,11 @@ class Job(models.Model):
         related_name="jobs",
         blank=True,
     )
+    categories = models.ManyToManyField(
+        Category,
+        related_name="jobs",
+        blank=True,
+    )
 
     company = models.ForeignKey(
         "users.Company",
