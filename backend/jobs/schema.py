@@ -6,7 +6,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import F
 from celery import current_app
 
-from jobs.models import Job, JobApplication, Skill, Category
+from jobs.models import Job, JobApplication, Skill, Category, JobQuestions
 from users.decorators import recruiter_with_company_required, user_required, get_user, ensure_verified_user
 from email_service.tasks import send_application_status_email
 
@@ -39,9 +39,21 @@ class SkillType(DjangoObjectType):
         )
 
 
+class JobQuestionType(DjangoObjectType):
+    class Meta:
+        model = JobQuestions
+        fields = (
+            "id",
+            "job",
+            "question",
+            "created_at",
+        )
+
+
 class JobType(DjangoObjectType):
     skills = graphene.List(lambda: SkillType)
     categories = graphene.List(lambda: CategoryType)
+    questions = graphene.List(lambda: JobQuestionType)
 
     class Meta:
         model = Job
@@ -59,6 +71,7 @@ class JobType(DjangoObjectType):
             "minimum_experience_required",
             "skills",
             "categories",
+            "questions",
         )
 
     def resolve_skills(self, info):
@@ -69,6 +82,9 @@ class JobType(DjangoObjectType):
 
     def resolve_categories(self, info):
         return self.categories.all()
+
+    def resolve_questions(self, info):
+        return self.questions.all().order_by("id")
 
 class JobApplicationType(DjangoObjectType):
     resume_url = graphene.String()
@@ -97,6 +113,10 @@ class JobQuery(graphene.ObjectType):
     all_categories = graphene.List(CategoryType)
     job_detail = graphene.Field(JobType, job_id=graphene.Int(required=True))
     company_jobs = graphene.List(JobType)
+    job_questions = graphene.List(
+        JobQuestionType,
+        job_id=graphene.Int(required=True),
+    )
     my_applications = graphene.List(JobApplicationType)
     job_applicants = graphene.List(
         JobApplicationType,
@@ -126,6 +146,14 @@ class JobQuery(graphene.ObjectType):
     def resolve_company_jobs(self, info):
         user = info.context.user
         return Job.objects.filter(company=user.company)
+
+    @recruiter_with_company_required
+    def resolve_job_questions(self, info, job_id):
+        user = info.context.user
+        job = Job.objects.filter(id=job_id, company=user.company).first()
+        if not job:
+            raise GraphQLError("Job not found or access denied")
+        return JobQuestions.objects.filter(job=job).order_by("id")
 
     # Applicant applications
     @user_required
@@ -297,6 +325,111 @@ class DeleteJob(graphene.Mutation):
         return DeleteJob(success=True)
 
 
+class CreateJobQuestion(graphene.Mutation):
+    question = graphene.Field(JobQuestionType)
+
+    class Arguments:
+        job_id = graphene.Int(required=True)
+        question = graphene.String(required=True)
+
+    def mutate(self, info, job_id, question):
+        raise GraphQLError("Questions can only be created via AI generation.")
+
+
+class UpdateJobQuestion(graphene.Mutation):
+    question = graphene.Field(JobQuestionType)
+
+    class Arguments:
+        question_id = graphene.Int(required=True)
+        question = graphene.String(required=True)
+
+    def mutate(self, info, question_id, question):
+        raise GraphQLError("Questions cannot be updated. Delete and regenerate instead.")
+
+
+class GenerateAiJobQuestions(graphene.Mutation):
+    success = graphene.Boolean()
+    queued = graphene.Boolean()
+    requested_count = graphene.Int()
+    available_slots = graphene.Int()
+    message = graphene.String()
+
+    class Arguments:
+        job_id = graphene.Int(required=True)
+        count = graphene.Int(required=False)
+
+    def mutate(self, info, job_id, count=15):
+        user = get_user(info)
+        if not user:
+            raise GraphQLError("Authentication required")
+        ensure_verified_user(user)
+        if not user.is_recruiter:
+            raise GraphQLError("Recruiter access required")
+        if not user.company:
+            raise GraphQLError("Recruiter not linked to company")
+
+        job = Job.objects.filter(id=job_id, company=user.company).first()
+        if not job:
+            raise GraphQLError("Job not found or access denied")
+
+        normalized_count = max(min(int(count or 15), JobQuestions.MAX_QUESTIONS_PER_JOB), 1)
+        existing_count = JobQuestions.objects.filter(job=job).count()
+        available_slots = max(JobQuestions.MAX_QUESTIONS_PER_JOB - existing_count, 0)
+
+        if available_slots <= 0:
+            return GenerateAiJobQuestions(
+                success=True,
+                queued=False,
+                requested_count=0,
+                available_slots=0,
+                message=f"Question limit reached ({JobQuestions.MAX_QUESTIONS_PER_JOB})",
+            )
+
+        final_request = min(normalized_count, available_slots)
+
+        current_app.send_task(
+            "resumes.tasks.get_questions_from_jd",
+            args=[job.id, final_request],
+            queue="get-questions",
+        )
+
+        return GenerateAiJobQuestions(
+            success=True,
+            queued=True,
+            requested_count=final_request,
+            available_slots=available_slots,
+            message="AI question generation queued",
+        )
+
+
+class DeleteJobQuestion(graphene.Mutation):
+    success = graphene.Boolean()
+
+    class Arguments:
+        question_id = graphene.Int(required=True)
+
+    def mutate(self, info, question_id):
+        user = get_user(info)
+        if not user:
+            raise GraphQLError("Authentication required")
+        ensure_verified_user(user)
+        if not user.is_recruiter:
+            raise GraphQLError("Recruiter access required")
+        if not user.company:
+            raise GraphQLError("Recruiter not linked to company")
+
+        existing_question = JobQuestions.objects.select_related("job").filter(
+            id=question_id,
+            job__company=user.company,
+        ).first()
+
+        if not existing_question:
+            raise GraphQLError("Question not found")
+
+        existing_question.delete()
+        return DeleteJobQuestion(success=True)
+
+
 class ApplyToJob(graphene.Mutation):
     application = graphene.Field(JobApplicationType)
 
@@ -415,5 +548,9 @@ class JobMutation(graphene.ObjectType):
     create_job = CreateJob.Field()
     update_job = UpdateJob.Field()
     delete_job = DeleteJob.Field()
+    create_job_question = CreateJobQuestion.Field()
+    generate_ai_job_questions = GenerateAiJobQuestions.Field()
+    update_job_question = UpdateJobQuestion.Field()
+    delete_job_question = DeleteJobQuestion.Field()
     apply_to_job = ApplyToJob.Field()
     update_application_status = UpdateApplicationStatus.Field()

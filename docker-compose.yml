@@ -71,7 +71,7 @@ services:
     image: smart-recruitment-backend:latest
     container_name: celery_email_worker
     restart: unless-stopped
-    command: celery -A core worker -l info -Q email_service --concurrency=2 --without-gossip --without-mingle
+    command: celery -A core worker -l info -Q email_service,get-questions --concurrency=2 --without-gossip --without-mingle
     volumes:
       - ./backend:/app
     env_file:

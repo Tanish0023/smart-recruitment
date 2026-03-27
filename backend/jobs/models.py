@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -144,3 +145,37 @@ class JobApplication(models.Model):
 
     def __str__(self):
         return f"{self.applicant.username} → {self.job.title}"
+
+class JobQuestions(models.Model):
+    MAX_QUESTIONS_PER_JOB = 20
+
+    job = models.ForeignKey(
+        Job,
+        on_delete=models.CASCADE,
+        related_name="questions",
+    )
+    question = models.CharField(max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+
+    def clean(self):
+        super().clean()
+        if not self.job_id:
+            return
+
+        existing_count = JobQuestions.objects.filter(job_id=self.job_id).exclude(id=self.id).count()
+        if existing_count >= self.MAX_QUESTIONS_PER_JOB:
+            raise ValidationError(
+                {
+                    "job": f"A job can have at most {self.MAX_QUESTIONS_PER_JOB} questions."
+                }
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Q{self.id} - {self.job.title}"
