@@ -147,6 +147,16 @@ export const GET_JOB_APPLICANTS = gql`
   }
 `;
 
+export const GET_JOB_QUESTIONS = gql`
+  query GetJobQuestions($jobId: Int!) {
+    jobQuestions(jobId: $jobId) {
+      id
+      question
+      createdAt
+    }
+  }
+`;
+
 // ─────────────────────────────────────────
 // Mutations
 // ─────────────────────────────────────────
@@ -260,6 +270,26 @@ export const UPDATE_APPLICATION_STATUS = gql`
         id
         status
       }
+    }
+  }
+`;
+
+export const GENERATE_AI_JOB_QUESTIONS = gql`
+  mutation GenerateAiJobQuestions($jobId: Int!, $count: Int) {
+    generateAiJobQuestions(jobId: $jobId, count: $count) {
+      success
+      queued
+      requestedCount
+      availableSlots
+      message
+    }
+  }
+`;
+
+export const DELETE_JOB_QUESTION = gql`
+  mutation DeleteJobQuestion($questionId: Int!) {
+    deleteJobQuestion(questionId: $questionId) {
+      success
     }
   }
 `;

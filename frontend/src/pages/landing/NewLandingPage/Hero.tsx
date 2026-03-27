@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ArrowRight, Sparkles, CheckCircle } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Hero = () => {
@@ -27,7 +27,7 @@ const Hero = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-5xl lg:text-7xl font-extrabold tracking-tight text-gray-900 mb-8 leading-[1.1]"
+            className="text-5xl lg:text-7xl dark:text-white/80 font-extrabold tracking-tight text-gray-900 mb-8 leading-[1.1]"
           >
             Hire the <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">perfect candidate</span> faster with AI
           </motion.h1>
@@ -62,25 +62,7 @@ const Hero = () => {
             </Link>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1, delay: 0.5 }}
-            className="flex flex-wrap justify-center gap-8 text-sm text-gray-500 font-medium"
-          >
-            <div className="flex items-center gap-2 text-gray-700">
-              <CheckCircle className="text-emerald-500" size={18} />
-              No credit card required
-            </div>
-            <div className="flex items-center gap-2 text-gray-700">
-              <CheckCircle className="text-emerald-500" size={18} />
-              Free for up to 50 candidates
-            </div>
-            <div className="flex items-center gap-2 text-gray-700">
-              <CheckCircle className="text-emerald-500" size={18} />
-              Set up in minutes
-            </div>
-          </motion.div>
+
         </div>
       </div>
     </section>

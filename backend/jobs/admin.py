@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Job, JobApplication, Skill, Category
+from .models import Job, JobApplication, Skill, Category, JobQuestions
 
 # Register your models here.
 
@@ -29,3 +29,10 @@ class JobAdmin(admin.ModelAdmin):
 class JobApplicationAdmin(admin.ModelAdmin):
     list_display = ("id",)
     # search_fields = ("name",)
+
+
+@admin.register(JobQuestions)
+class JobQuestionsAdmin(admin.ModelAdmin):
+    list_display = ("id", "job", "question", "created_at")
+    search_fields = ("question", "job__title")
+    list_filter = ("job__company", "created_at")

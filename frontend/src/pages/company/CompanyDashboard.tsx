@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation } from "@apollo/client/react";
+import { useQuery, useMutation, useApolloClient } from "@apollo/client/react";
 import {
     Briefcase, Plus, Pencil, Trash2, Users, ToggleLeft, ToggleRight,
     Loader2, CheckCircle2, CircleOff,
     MapPin, DollarSign, Search,
-    X,
+    X, Sparkles,
 } from "lucide-react";
 import { Formik, Form, Field, ErrorMessage } from "formik";
 import { z } from "zod";
@@ -21,6 +21,7 @@ import {
     GET_COMPANY_JOBS, GET_JOB_APPLICANTS,
     GET_ALL_SKILLS, GET_ALL_CATEGORIES,
     CREATE_JOB, UPDATE_JOB, DELETE_JOB, UPDATE_APPLICATION_STATUS,
+    GET_JOB_QUESTIONS, GENERATE_AI_JOB_QUESTIONS, DELETE_JOB_QUESTION,
 } from "@/graphql/jobs";
 
 /* ─── Types ──────────────────────────────────────────── */
@@ -51,6 +52,12 @@ interface Applicant {
     applicant: { id: string; username: string; email: string };
 }
 
+interface JobQuestion {
+    id: string;
+    question: string;
+    createdAt: string;
+}
+
 type ApplicantsSortMode = "RANKING" | "LATEST";
 
 interface CreateJobData {
@@ -78,6 +85,28 @@ interface UpdateApplicationStatusData {
             status: string;
         }
     }
+}
+
+interface GenerateAiJobQuestionsData {
+    generateAiJobQuestions: {
+        success: boolean;
+        queued: boolean;
+        requestedCount: number;
+        availableSlots: number;
+        message: string;
+    };
+}
+
+interface DeleteJobQuestionData {
+    deleteJobQuestion: {
+        success: boolean;
+    };
+}
+
+interface BannerToast {
+    message: string;
+    actionLabel?: string;
+    onAction?: () => void;
 }
 
 type Tab = "jobs" | "post" | "applicants";
@@ -389,6 +418,7 @@ export default function CompanyDashboard() {
     });
     const [editJob, setEditJob] = useState<Job | null>(null);
     const [deleteJob, setDeleteJobState] = useState<Job | null>(null);
+    const [questionsJob, setQuestionsJob] = useState<Job | null>(null);
     const [selectedJobId, setSelectedJobId] = useState<string | null>(() => {
         if (typeof window === "undefined") {
             return null;
@@ -396,8 +426,15 @@ export default function CompanyDashboard() {
         return window.localStorage.getItem(DASHBOARD_SELECTED_JOB_STORAGE_KEY);
     });
     const [applicantsSortMode, setApplicantsSortMode] = useState<ApplicantsSortMode>("RANKING");
-    const [successMsg, setSuccessMsg] = useState("");
+    const [successMsg, setSuccessMsg] = useState<BannerToast | null>(null);
     const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({});
+    const [awaitingGeneratedQuestions, setAwaitingGeneratedQuestions] = useState(false);
+    const [baselineQuestionCount, setBaselineQuestionCount] = useState<number | null>(null);
+    const [pendingQuestionsJob, setPendingQuestionsJob] = useState<Job | null>(null);
+    const [initialQuestionCounts, setInitialQuestionCounts] = useState<Record<string, number>>({});
+    const questionPollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const questionPollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         window.localStorage.setItem(DASHBOARD_TAB_STORAGE_KEY, activeTab);
@@ -414,6 +451,8 @@ export default function CompanyDashboard() {
         useQuery<{ companyJobs: Job[] }>(GET_COMPANY_JOBS);
     const { data: skillsData } = useQuery<{ allSkills: Skill[] }>(GET_ALL_SKILLS);
     const { data: categoriesData } = useQuery<{ allCategories: Category[] }>(GET_ALL_CATEGORIES);
+    const client = useApolloClient();
+    const activeQuestionsJobId = questionsJob?.id ?? pendingQuestionsJob?.id ?? null;
     const defaultSelectedJobId = selectedJobId ?? jobsData?.companyJobs?.[0]?.id ?? null;
     const { data: applicantsData, loading: applicantsLoading } =
         useQuery<{ jobApplicants: Applicant[] }>(GET_JOB_APPLICANTS, {
@@ -423,9 +462,24 @@ export default function CompanyDashboard() {
             },
             skip: !defaultSelectedJobId,
         });
+    const {
+        data: questionsData,
+        loading: questionsLoading,
+        refetch: refetchQuestions,
+    } = useQuery<{ jobQuestions: JobQuestion[] }>(GET_JOB_QUESTIONS, {
+        variables: { jobId: Number(activeQuestionsJobId) },
+        skip: !activeQuestionsJobId,
+        fetchPolicy: "network-only",
+    });
 
     /* ── Mutations ── */
-    function flash(msg: string) { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(""), 3000); }
+    const flash = useCallback((message: string, actionLabel?: string, onAction?: () => void) => {
+        setSuccessMsg({ message, actionLabel, onAction });
+        if (toastTimeoutRef.current) {
+            clearTimeout(toastTimeoutRef.current);
+        }
+        toastTimeoutRef.current = setTimeout(() => setSuccessMsg(null), 6000);
+    }, []);
 
     const [createJob, { loading: creating }] = useMutation<CreateJobData>(CREATE_JOB, {
         onCompleted() { refetchJobs(); flash("Job posted successfully!"); setActiveTab("jobs"); },
@@ -440,11 +494,92 @@ export default function CompanyDashboard() {
     const [updateStatus] = useMutation<UpdateApplicationStatusData>(UPDATE_APPLICATION_STATUS, {
         onCompleted() { },
     });
+    const [generateAiQuestions, { loading: generatingAiQuestions }] =
+        useMutation<GenerateAiJobQuestionsData>(GENERATE_AI_JOB_QUESTIONS, {
+            onCompleted(data) {
+                const message = data.generateAiJobQuestions?.message || "AI question generation queued";
+                flash(message);
+            },
+            onError(error) {
+                flash("Error: " + error.message);
+            },
+        });
+    const [deleteQuestion, { loading: deletingQuestion }] =
+        useMutation<DeleteJobQuestionData>(DELETE_JOB_QUESTION, {
+            onCompleted() {
+                flash("Question deleted");
+                refetchQuestions();
+            },
+            onError(error) {
+                flash("Error: " + error.message);
+            },
+        });
 
-    const jobs = jobsData?.companyJobs ?? [];
+    const jobs = useMemo(() => jobsData?.companyJobs ?? [], [jobsData?.companyJobs]);
     const allSkills = skillsData?.allSkills ?? [];
     const allCategories = categoriesData?.allCategories ?? [];
     const applicants = applicantsData?.jobApplicants ?? [];
+    const questions = questionsData?.jobQuestions ?? [];
+    const maxQuestions = 20;
+    const remainingQuestionSlots = Math.max(maxQuestions - questions.length, 0);
+    const isAwaitingQuestionsResult =
+        awaitingGeneratedQuestions &&
+        baselineQuestionCount !== null &&
+        questions.length <= baselineQuestionCount;
+
+    const clearQuestionsPolling = useCallback(() => {
+        if (questionPollingIntervalRef.current) {
+            clearInterval(questionPollingIntervalRef.current);
+            questionPollingIntervalRef.current = null;
+        }
+        if (questionPollingTimeoutRef.current) {
+            clearTimeout(questionPollingTimeoutRef.current);
+            questionPollingTimeoutRef.current = null;
+        }
+    }, []);
+
+    const closeQuestionsDialog = useCallback(() => {
+        if (!awaitingGeneratedQuestions) {
+            clearQuestionsPolling();
+            setPendingQuestionsJob(null);
+        }
+        setQuestionsJob(null);
+    }, [clearQuestionsPolling, awaitingGeneratedQuestions]);
+
+
+
+    useEffect(() => {
+        return () => {
+            clearQuestionsPolling();
+            if (toastTimeoutRef.current) {
+                clearTimeout(toastTimeoutRef.current);
+            }
+        };
+    }, [clearQuestionsPolling]);
+
+    // Fetch initial question counts for all jobs on page load
+    useEffect(() => {
+        if (!jobs.length) return;
+
+        const fetchCounts = async () => {
+            const counts: Record<string, number> = {};
+            for (const job of jobs) {
+                try {
+                    const { data } = await client.query<{ jobQuestions: JobQuestion[] }>({
+                        query: GET_JOB_QUESTIONS,
+                        variables: { jobId: Number(job.id) },
+                        fetchPolicy: "network-only",
+                    });
+                    counts[job.id] = data?.jobQuestions?.length ?? 0;
+                } catch {
+                    counts[job.id] = 0;
+                }
+            }
+            setInitialQuestionCounts(counts);
+        };
+
+        fetchCounts();
+    }, [jobs, client]);
 
     return (
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Tab)} className="w-full">
@@ -479,7 +614,20 @@ export default function CompanyDashboard() {
                 {/* Success toast */}
                 {successMsg && (
                     <div className="mx-6 mt-4 flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-medium px-4 py-2.5 rounded-xl">
-                        <CheckCircle2 className="w-4 h-4" /> {successMsg}
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>{successMsg.message}</span>
+                        {successMsg.actionLabel && successMsg.onAction && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    successMsg.onAction?.();
+                                    setSuccessMsg(null);
+                                }}
+                                className="ml-2 underline underline-offset-2 font-semibold text-emerald-800 hover:text-emerald-900"
+                            >
+                                {successMsg.actionLabel}
+                            </button>
+                        )}
                     </div>
                 )}
 
@@ -575,6 +723,13 @@ export default function CompanyDashboard() {
                                                 className="p-2 rounded-xl text-gray-500 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
                                             >
                                                 <Pencil className="w-5 h-5" />
+                                            </button>
+                                            <button
+                                                title="Manage interview questions"
+                                                onClick={() => setQuestionsJob(job)}
+                                                className="p-2 rounded-xl text-gray-500 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
+                                            >
+                                                <Sparkles className={`w-5 h-5 ${(initialQuestionCounts[job.id] ?? 0) > 0 ? "text-amber-500" : ""}`} />
                                             </button>
                                             <button
                                                 title="Delete"
@@ -746,6 +901,136 @@ export default function CompanyDashboard() {
                         </div>
                     </TabsContent>
                 </div>
+
+                {/* ──────────── Edit Job Dialog ──────────── */}
+                <Dialog open={!!questionsJob} onOpenChange={(open) => !open && closeQuestionsDialog()}>
+                    <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                            <DialogTitle>Interview Questions</DialogTitle>
+                            <DialogDescription>
+                                {questionsJob?.title} • {questions.length}/{maxQuestions} questions
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="rounded-xl border border-gray-200 p-3 bg-gray-50 text-sm text-gray-700 flex items-center justify-between gap-3 mb-5">
+                            <span>
+                                Generate AI questions up to limit. Remaining slots: <strong>{remainingQuestionSlots}</strong>
+                            </span>
+                            <Button
+                                type="button"
+                                disabled={!questionsJob?.id || remainingQuestionSlots <= 0 || generatingAiQuestions}
+                                onClick={() => {
+                                    if (!questionsJob?.id) {
+                                        return;
+                                    }
+                                    const targetJob = questionsJob;
+                                    const currentCount = questions.length;
+                                    setBaselineQuestionCount(currentCount);
+                                    setAwaitingGeneratedQuestions(true);
+                                    setPendingQuestionsJob(targetJob);
+                                    setQuestionsJob(null);
+                                    flash("We are generating your questions...");
+
+                                    generateAiQuestions({
+                                        variables: {
+                                            jobId: Number(targetJob.id),
+                                            count: Math.min(20, remainingQuestionSlots),
+                                        },
+                                    });
+
+                                    // Queueing is async; poll in background so toasts can notify when ready.
+                                    if (questionPollingIntervalRef.current) {
+                                        clearInterval(questionPollingIntervalRef.current);
+                                    }
+                                    questionPollingIntervalRef.current = setInterval(async () => {
+                                        const result = await refetchQuestions();
+                                        const fetchedCount = result.data?.jobQuestions?.length ?? 0;
+
+                                        if (fetchedCount > currentCount || fetchedCount >= maxQuestions) {
+                                            clearQuestionsPolling();
+                                            setAwaitingGeneratedQuestions(false);
+                                            setBaselineQuestionCount(null);
+                                            setPendingQuestionsJob(null);
+                                            flash(
+                                                "Questions generated successfully.",
+                                                "Check them here",
+                                                () => {
+                                                    setQuestionsJob(targetJob);
+                                                    setPendingQuestionsJob(null);
+                                                }
+                                            );
+                                        }
+                                    }, 5000);
+
+                                    if (questionPollingTimeoutRef.current) {
+                                        clearTimeout(questionPollingTimeoutRef.current);
+                                    }
+                                    questionPollingTimeoutRef.current = setTimeout(() => {
+                                        clearQuestionsPolling();
+                                        setAwaitingGeneratedQuestions(false);
+                                        setBaselineQuestionCount(null);
+                                    }, 30000);
+                                }}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                            >
+                                {generatingAiQuestions ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                                {generatingAiQuestions ? "Queueing..." : "Generate AI Questions"}
+                            </Button>
+                        </div>
+
+                        <div className="max-h-[45vh] overflow-y-auto space-y-2 pr-1">
+                            {isAwaitingQuestionsResult && (
+                                <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-center text-sm text-indigo-700">
+                                    <div className="flex items-center justify-center gap-2">
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Generating interview questions. They will appear automatically.
+                                    </div>
+                                </div>
+                            )}
+
+                            {questionsLoading && (
+                                <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
+                                    <Loader2 className="w-4 h-4 animate-spin" /> Loading questions...
+                                </div>
+                            )}
+
+                            {!questionsLoading && !isAwaitingQuestionsResult && questions.length === 0 && (
+                                <div className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-500">
+                                    No questions yet. Click "Generate AI Questions" to create them.
+                                </div>
+                            )}
+
+                            {!questionsLoading && questions.map((item, index) => (
+                                <div
+                                    key={item.id}
+                                    className="rounded-xl border border-gray-200 bg-white px-4 py-3 flex items-start gap-3"
+                                >
+                                    <span className="text-xs font-semibold text-indigo-600 mt-1">Q{index + 1}</span>
+                                    <p className="text-sm text-gray-800 flex-1 leading-relaxed">{item.question}</p>
+                                    <button
+                                        type="button"
+                                        title="Delete question"
+                                        disabled={deletingQuestion}
+                                        onClick={() => {
+                                            deleteQuestion({
+                                                variables: { questionId: Number(item.id) },
+                                            });
+                                        }}
+                                        className="p-1.5 rounded-md text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        <DialogFooter>
+                            <Button variant="outline" onClick={closeQuestionsDialog}>
+                                Close
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 {/* ──────────── Edit Job Dialog ──────────── */}
                 <Dialog open={!!editJob} onOpenChange={(o) => !o && setEditJob(null)}>

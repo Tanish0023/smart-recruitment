@@ -1,15 +1,64 @@
 from celery import shared_task
 from .models import Resume
-from jobs.models import Skill, Job, JobApplication
+from jobs.models import Skill, Job, JobApplication, JobQuestions
 from django.utils import timezone
+from django.db import transaction
 from io import BytesIO
 from urllib.request import urlopen
 
 import re
 import json
 import spacy
+import logging
+import os
+from pathlib import Path
 from spacy.language import Language
 from pdfminer.high_level import extract_text
+from django.conf import settings
+
+# Configure Resume Parsing Logs Directory
+LOGS_DIR = os.path.join(settings.BASE_DIR, 'logs', 'resume_parsing')
+os.makedirs(LOGS_DIR, exist_ok=True)
+
+# Create base logger
+logger = logging.getLogger(__name__)
+
+
+def get_file_logger(resume_file_name, job_name):
+    """
+    Create a separate logger for each resume-job application pair.
+    Log file format: resume_name-job_name.txt
+    """
+    # Clean filenames for safe file creation
+    resume_name = re.sub(r'[^\w\s-]', '', Path(resume_file_name).stem)
+    job_name_clean = re.sub(r'[^\w\s-]', '', job_name)
+
+    log_filename = f"{resume_name}-{job_name_clean}.txt"
+    log_filepath = os.path.join(LOGS_DIR, log_filename)
+
+    # Create logger with unique name based on filepath
+    file_logger = logging.getLogger(f"resume_parsing.{log_filepath}")
+
+    # Clear existing handlers to avoid duplicates
+    file_logger.handlers.clear()
+
+    # Set logger level
+    file_logger.setLevel(logging.DEBUG)
+
+    # Create file handler
+    file_handler = logging.FileHandler(log_filepath, mode='a')
+    file_handler.setLevel(logging.DEBUG)
+
+    # Create formatter
+    formatter = logging.Formatter(
+        '%(asctime)s - [%(levelname)s] - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    file_handler.setFormatter(formatter)
+
+    file_logger.addHandler(file_handler)
+
+    return file_logger, log_filepath
 
 try:
     from spacy.pipeline import SentenceSegmenter
@@ -29,7 +78,23 @@ except:
     download("en_core_web_sm")
     nlp = spacy.load("en_core_web_sm")
 
-model = SentenceTransformer("all-MiniLM-L6-v2") if SentenceTransformer is not None else None
+model = None
+
+
+def get_sentence_model():
+    global model
+    if model is not None:
+        return model
+
+    if SentenceTransformer is None:
+        return None
+
+    try:
+        model = SentenceTransformer("all-MiniLM-L6-v2")
+        return model
+    except Exception:
+        logger.exception("Failed to initialize sentence-transformer model")
+        return None
 
 
 def split_on_boundaries(doc):
@@ -197,7 +262,6 @@ def to_json_safe(value):
 
 
 def extract_text_from_pdf(file_field):
-    # Support both local filesystem and remote storage backends (e.g., Cloudinary/S3).
     try:
         return extract_text(file_field.path)
     except (NotImplementedError, AttributeError, OSError):
@@ -208,7 +272,6 @@ def extract_text_from_pdf(file_field):
             finally:
                 file_field.close()
         except OSError:
-            # Final fallback: fetch through resolved storage URL (works with Cloudinary raw assets).
             with urlopen(file_field.url, timeout=30) as response:
                 return extract_text(BytesIO(response.read()))
 
@@ -232,7 +295,6 @@ def clean_text(text):
 def is_section_header(line):
     clean = line.strip().lower()
 
-    # headers are usually short
     if len(clean.split()) > 6:
         return None
 
@@ -426,14 +488,13 @@ def normalize_phone(raw_phone):
         return "", "", ""
 
     if compact.startswith("+"):
-        # Try longest possible dial code first.
         for size in (4, 3, 2, 1):
             if len(digits_only) > size:
                 dial = "+" + digits_only[:size]
                 if dial in COUNTRY_BY_DIAL_CODE:
                     local = digits_only[size:]
                     return dial, local, f"{dial} {local}".strip()
-        # Fallback when code is not mapped.
+
         dial = "+" + digits_only[:1]
         local = digits_only[1:]
         return dial, local, f"{dial} {local}".strip()
@@ -445,7 +506,6 @@ def extract_phone(text):
     pattern = re.compile(r"(?:\+|00)?\d[\d\s\-()]{6,}\d")
     candidates = pattern.findall(text)
 
-    # Prefer numbers that appear near explicit mobile/phone labels.
     labelled_hits = []
     lower_text = text.lower()
     for candidate in candidates:
@@ -568,7 +628,8 @@ def calculate_experience_score(resume_data):
     return min(score, 1.0)
 
 def calculate_semantic_score(resume_data, jd_emb):
-    if model is None or util is None or jd_emb is None:
+    sentence_model = get_sentence_model()
+    if sentence_model is None or util is None or jd_emb is None:
         return 0
 
     experience_text = resume_data.get("sections", {}).get("experience", "")
@@ -579,7 +640,7 @@ def calculate_semantic_score(resume_data, jd_emb):
     if not combined.strip():
         return 0
 
-    resume_emb = model.encode(combined, convert_to_tensor=True)
+    resume_emb = sentence_model.encode(combined, convert_to_tensor=True)
 
     score = util.cos_sim(jd_emb, resume_emb).item()
 
@@ -587,30 +648,74 @@ def calculate_semantic_score(resume_data, jd_emb):
 
 def calculate_final_score(skill, category, experience, semantic):
     return (
-        0.5 * skill +        # MOST IMPORTANT
+        0.5 * skill +
         0.2 * category +
         0.15 * experience +
-        0.15 * semantic      # cosine similarity
+        0.15 * semantic
     )
 
 @shared_task(queue='resume_parsing')
 def resume_parsing(resume_id, user_id=None, update_basic_details=True):
     resume = Resume.objects.get(id=resume_id)
 
+    # Setup file logger
+    job_name = "NO_JOB_ASSOCIATED"
+    file_logger, log_filepath = get_file_logger(resume.file.name, job_name)
+
+    file_logger.info("=" * 80)
+    file_logger.info(f"STARTING RESUME PARSING TASK")
+    file_logger.info(f"Resume ID: {resume_id}")
+    file_logger.info(f"User ID: {user_id}")
+    file_logger.info(f"Update Basic Details: {update_basic_details}")
+    file_logger.info(f"Resume File: {resume.file.name}")
+    file_logger.info("=" * 80)
+
     resume.status = Resume.STATUS_CHOICES.PROCESSING
     resume.save(update_fields=["status"])
 
     try:
         if not resume.file:
+            file_logger.error("Resume file is missing - TASK FAILED")
             raise ValueError("Resume file is missing.")
 
+        file_logger.info("\n[STEP 1] Extracting text from PDF...")
         raw_text = extract_text_from_pdf(resume.file)
+        file_logger.info(f"✓ Raw text extracted - Length: {len(raw_text)} characters")
+        file_logger.debug(f"First 500 characters of raw text:\n{raw_text[:500]}")
+
+        file_logger.info("\n[STEP 2] Cleaning extracted text...")
         text = clean_text(raw_text)
+        file_logger.info(f"✓ Text cleaned - Length: {len(text)} characters")
+        file_logger.info(f"Character reduction: {len(raw_text)} → {len(text)} ({((len(raw_text) - len(text)) / len(raw_text) * 100):.1f}% removed)")
 
+        file_logger.info("\n[STEP 3] Extracting sections from resume...")
         sections = extract_sections(text)
-        skills = extract_skills(text)
-        profile = extract_profile(text)
+        for section_name, section_content in sections.items():
+            file_logger.info(f"  • {section_name}: {len(section_content)} characters, {len(section_content.split())} words")
 
+        file_logger.info("\n[STEP 4] Extracting skills from resume...")
+        file_logger.info("Normalizing text for skill matching...")
+        normalized_text = normalize_text(text)
+        file_logger.debug(f"Normalized text sample: {normalized_text[:300]}")
+
+        skills = extract_skills(text)
+        file_logger.info(f"✓ Skills extraction complete - Total skills found: {len(skills)}")
+        if skills:
+            file_logger.info(f"  Extracted Skills: {', '.join(skills)}")
+        else:
+            file_logger.warning("  ⚠ No skills found during extraction")
+
+        file_logger.info("\n[STEP 5] Extracting candidate profile information...")
+        profile = extract_profile(text)
+        file_logger.info(f"✓ Profile extraction complete:")
+        file_logger.info(f"  • First Name: {profile.get('first_name', 'N/A')}")
+        file_logger.info(f"  • Last Name: {profile.get('last_name', 'N/A')}")
+        file_logger.info(f"  • Phone: {profile.get('phone_full', 'N/A')}")
+        file_logger.info(f"  • Dial Code: {profile.get('phone_code', 'N/A')}")
+        file_logger.info(f"  • Phone Number: {profile.get('phone_number', 'N/A')}")
+        file_logger.info(f"  • Country: {profile.get('country', 'N/A')}")
+
+        file_logger.info("\n[STEP 6] Creating parsed data object...")
         obj = {
             "skills": skills,
             "sections": sections,
@@ -619,39 +724,52 @@ def resume_parsing(resume_id, user_id=None, update_basic_details=True):
 
         obj = to_json_safe(obj)
         json.dumps(obj)
+        file_logger.info(f"✓ Parsed data object created and validated - Size: {len(json.dumps(obj))} characters")
 
+        file_logger.info("\n[STEP 7] Saving resume to database...")
         resume.parsed_text = text
         resume.parsed_data = obj
         resume.status = Resume.STATUS_CHOICES.DONE
-
         resume.save(update_fields=["parsed_text", "parsed_data", "status"])
+        file_logger.info("✓ Resume saved to database with status: DONE")
 
         if user_id:
+            file_logger.info("\n[STEP 8] Updating user profile with extracted information...")
             from users.models import User
             user = User.objects.get(id=user_id)
 
+            # Add skills to user
             extracted_skill_objs = list(Skill.objects.filter(name__in=skills))
             if extracted_skill_objs:
                 user.skills.add(*extracted_skill_objs)
+                file_logger.info(f"✓ Added {len(extracted_skill_objs)} skills to user profile:")
+                file_logger.info(f"  {', '.join([s.name for s in extracted_skill_objs])}")
+            else:
+                file_logger.info("No skills to add to user profile")
 
             if update_basic_details:
+                file_logger.info("\nUpdating basic user details from resume...")
                 changed_fields = []
 
                 if profile.get("first_name") and not (user.first_name or "").strip():
                     user.first_name = profile["first_name"].strip()
                     changed_fields.append("first_name")
+                    file_logger.info(f"  ✓ Updated first_name: {user.first_name}")
 
                 if profile.get("last_name") and not (user.last_name or "").strip():
                     user.last_name = profile["last_name"].strip()
                     changed_fields.append("last_name")
+                    file_logger.info(f"  ✓ Updated last_name: {user.last_name}")
 
                 if profile.get("phone_full") and not (user.phone or "").strip():
                     user.phone = profile["phone_full"].strip()
                     changed_fields.append("phone")
+                    file_logger.info(f"  ✓ Updated phone: {user.phone}")
 
                 if profile.get("country") and not (user.location or "").strip():
                     user.location = profile["country"].strip()
                     changed_fields.append("location")
+                    file_logger.info(f"  ✓ Updated location: {user.location}")
 
                 if (
                     user.profile_sections_status().get("basicInfo")
@@ -659,19 +777,46 @@ def resume_parsing(resume_id, user_id=None, update_basic_details=True):
                 ):
                     user.onboarding_completed_at = timezone.now()
                     changed_fields.append("onboarding_completed_at")
+                    file_logger.info(f"  ✓ Updated onboarding_completed_at: {user.onboarding_completed_at}")
 
                 if changed_fields:
                     user.save(update_fields=changed_fields)
+                    file_logger.info(f"✓ User profile updated with {len(changed_fields)} field(s)")
+                else:
+                    file_logger.info("⚠ No new basic details to update")
+
+        file_logger.info("\n" + "=" * 80)
+        file_logger.info("RESUME PARSING COMPLETED SUCCESSFULLY ✓")
+        file_logger.info("=" * 80 + "\n")
 
     except Exception as e:
+        file_logger.error("\n" + "=" * 80)
+        file_logger.error(f"RESUME PARSING FAILED WITH ERROR")
+        file_logger.error(f"Error Type: {type(e).__name__}")
+        file_logger.error(f"Error Message: {str(e)}")
+        file_logger.error("=" * 80 + "\n")
+
         resume.status = Resume.STATUS_CHOICES.FAILED
         resume.save(update_fields=["status"])
         raise e
 
 @shared_task(queue="resume_parsing")
 def scoring_resume(job_id, application_id=None):
+    file_logger_main = logging.getLogger("resume_parsing.scoring_main")
+
+    file_logger_main.info("\n" + "=" * 80)
+    file_logger_main.info(f"STARTING RESUME SCORING TASK")
+    file_logger_main.info(f"Job ID: {job_id}")
+    file_logger_main.info(f"Application ID: {application_id}")
+    file_logger_main.info("=" * 80)
+
     job = Job.objects.get(id=job_id)
     jd = job.description
+
+    file_logger_main.info(f"\n[STEP 1] Loading Job Details:")
+    file_logger_main.info(f"  • Job Title: {job.title}")
+    file_logger_main.info(f"  • Job ID: {job.id}")
+    file_logger_main.info(f"  • Job Description Length: {len(jd)} characters")
 
     applications = JobApplication.objects.select_related(
         "resume",
@@ -681,34 +826,79 @@ def scoring_resume(job_id, application_id=None):
     if application_id is not None:
         applications = applications.filter(id=application_id)
 
+    file_logger_main.info(f"\n[STEP 2] Loading job requirements:")
+
     skill_map = get_skill_category_map()
     job_skill_names = set(job.skills.values_list("name", flat=True))
     job_category_names = set(job.categories.values_list("name", flat=True))
 
-    jd_emb = model.encode(jd, convert_to_tensor=True) if model is not None else None
-    def compute_application_score(application):
-        # Prefer resume snapshot captured at application time; fallback to latest profile resume.
+    file_logger_main.info(f"  • Required Skills ({len(job_skill_names)}): {', '.join(sorted(job_skill_names)) if job_skill_names else 'None'}")
+    file_logger_main.info(f"  • Required Categories ({len(job_category_names)}): {', '.join(sorted(job_category_names)) if job_category_names else 'None'}")
+
+    file_logger_main.info(f"\n[STEP 3] Loading semantic model for job description...")
+    sentence_model = get_sentence_model()
+    jd_emb = sentence_model.encode(jd, convert_to_tensor=True) if sentence_model is not None else None
+    if jd_emb is not None:
+        file_logger_main.info(f"  ✓ Job description encoded successfully")
+    else:
+        file_logger_main.warning(f"  ⚠ Semantic model not available - semantic scoring will be disabled")
+
+    def compute_application_score(application, file_logger):
         resume = application.resume or application.applicant.primary_resume
 
-        # ❌ no resume or parsing failed
         if not resume or not resume.parsed_data:
+            file_logger.warning(f"⚠ Application {application.id}: No resume or parsed data found")
             return 0
 
         data = resume.parsed_data
 
-        # -----------------------------
-        # CALCULATE ALL SCORES
-        # -----------------------------
-        skill_score = calculate_skill_score(job_skill_names, data)
-        category_score = calculate_category_score(job_category_names, data, skill_map)
-        experience_score = calculate_experience_score(data)
-        semantic_score = calculate_semantic_score(data, jd_emb)
+        file_logger.info(f"\n--- SCORING APPLICATION {application.id} ---")
+        file_logger.info(f"Resume File: {resume.file.name if resume.file else 'N/A'}")
+        file_logger.info(f"Applicant: {application.applicant.get_full_name() if application.applicant else 'Unknown'}")
 
-        # -----------------------------
-        # GATING (IMPORTANT)
-        # -----------------------------
+        # Calculate individual scores
+        file_logger.info(f"\n  [SCORE 1] Skill Matching Score:")
+        skill_score = calculate_skill_score(job_skill_names, data)
+        resume_skills = set(data.get("skills", []))
+        matched_skills = job_skill_names & resume_skills
+        file_logger.info(f"    • Resume Skills: {', '.join(sorted(resume_skills)) if resume_skills else 'None found'}")
+        file_logger.info(f"    • Matched Skills ({len(matched_skills)}/{len(job_skill_names)}): {', '.join(sorted(matched_skills)) if matched_skills else 'None'}")
+        file_logger.info(f"    • Skill Score: {skill_score:.3f} (Weight: 50%)")
+
+        file_logger.info(f"\n  [SCORE 2] Category Matching Score:")
+        category_score = calculate_category_score(job_category_names, data, skill_map)
+        matched_categories = sum(1 for skill in resume_skills if skill_map.get(skill) in job_category_names)
+        file_logger.info(f"    • Skills in Required Categories: {matched_categories}/{len(resume_skills) if resume_skills else 0}")
+        file_logger.info(f"    • Category Score: {category_score:.3f} (Weight: 20%)")
+
+        file_logger.info(f"\n  [SCORE 3] Experience Score:")
+        experience_score = calculate_experience_score(data)
+        experience_text = data.get("sections", {}).get("experience", "")
+        file_logger.info(f"    • Experience Section Length: {len(experience_text)} characters")
+        # Check for strong action verbs
+        strong_verbs_found = []
+        for verb, strength in VERB_STRENGTH.items():
+            if verb in experience_text.lower():
+                strong_verbs_found.append((verb, strength))
+        if strong_verbs_found:
+            file_logger.info(f"    • Action Verbs Found: {', '.join([f'{v}({s:.1f})' for v, s in strong_verbs_found])}")
+        has_percentage = bool(re.search(r"\d+%", experience_text))
+        file_logger.info(f"    • Contains Metrics (% mentioned): {has_percentage}")
+        file_logger.info(f"    • Experience Score: {experience_score:.3f} (Weight: 15%)")
+
+        file_logger.info(f"\n  [SCORE 4] Semantic Similarity Score:")
+        semantic_score = calculate_semantic_score(data, jd_emb)
+        if sentence_model is not None and jd_emb is not None:
+            file_logger.info(f"    • Semantic Model Available: Yes")
+        else:
+            file_logger.info(f"    • Semantic Model Available: No (Score will be 0)")
+        file_logger.info(f"    • Semantic Score: {semantic_score:.3f} (Weight: 15%)")
+
+        file_logger.info(f"\n  [SCORE 5] Final Score Calculation:")
         if skill_score < 0.3:
             final_score = skill_score * 0.5
+            file_logger.info(f"    ⚠ Skill score ({skill_score:.3f}) < 0.3 threshold - Applying penalty multiplier (0.5)")
+            file_logger.info(f"    • Final Score (Penalized): {skill_score:.3f} × 0.5 = {final_score:.3f}")
         else:
             final_score = calculate_final_score(
                 skill_score,
@@ -716,26 +906,226 @@ def scoring_resume(job_id, application_id=None):
                 experience_score,
                 semantic_score
             )
+            file_logger.info(f"    • Formula: (0.5 × {skill_score:.3f}) + (0.2 × {category_score:.3f}) + (0.15 × {experience_score:.3f}) + (0.15 × {semantic_score:.3f})")
+            file_logger.info(f"    • Final Score (Weighted): {final_score:.3f}")
+
+        file_logger.info(f"\n  Score Breakdown:")
+        file_logger.info(f"    ├─ Skill Score: {skill_score:.3f} × 50% = {skill_score * 0.5:.4f}")
+        file_logger.info(f"    ├─ Category Score: {category_score:.3f} × 20% = {category_score * 0.2:.4f}")
+        file_logger.info(f"    ├─ Experience Score: {experience_score:.3f} × 15% = {experience_score * 0.15:.4f}")
+        file_logger.info(f"    └─ Semantic Score: {semantic_score:.3f} × 15% = {semantic_score * 0.15:.4f}")
+        file_logger.info(f"    ═══════════════════════════════════════")
+        file_logger.info(f"    FINAL SCORE: {final_score:.3f}")
 
         return round(final_score, 3)
 
     if application_id is not None:
+        file_logger_main.info(f"\n[STEP 4] Processing Single Application:")
+
         application = applications.first()
         if not application:
+            file_logger_main.warning(f"⚠ Application {application_id} not found")
             return
 
-        new_score = compute_application_score(application)
+        resume_file_name = (application.resume or application.applicant.primary_resume).file.name if (application.resume or application.applicant.primary_resume) else "unknown_resume"
+        file_logger, _ = get_file_logger(resume_file_name, job.title)
+
+        new_score = compute_application_score(application, file_logger)
         if application.score != new_score:
+            file_logger.info(f"\n  ✓ Score updated: {application.score} → {new_score}")
             application.score = new_score
             application.save(update_fields=["score"])
+            file_logger_main.info(f"  ✓ Application {application.id} score updated to {new_score}")
+        else:
+            file_logger.info(f"\n  ℹ Score unchanged: {new_score}")
+            file_logger_main.info(f"  ℹ Application {application.id} score unchanged ({new_score})")
+
+        file_logger.info(f"\n{'=' * 80}")
+        file_logger.info("SCORING COMPLETED")
+        file_logger.info(f"{'=' * 80}\n")
         return
 
+    # Batch scoring multiple applications
+    file_logger_main.info(f"\n[STEP 4] Processing {applications.count()} Applications in Batch:")
+
     score_updates = []
-    for application in applications:
-        new_score = compute_application_score(application)
+    for idx, application in enumerate(applications, 1):
+        resume_file_name = (application.resume or application.applicant.primary_resume).file.name if (application.resume or application.applicant.primary_resume) else "unknown_resume"
+        file_logger, _ = get_file_logger(resume_file_name, job.title)
+
+        file_logger_main.info(f"\n  [{idx}/{applications.count()}] Processing Application {application.id}...")
+
+        new_score = compute_application_score(application, file_logger)
         if application.score != new_score:
             application.score = new_score
             score_updates.append(application)
+            file_logger_main.info(f"      ✓ Will be updated: {new_score}")
+        else:
+            file_logger_main.info(f"      ℹ Unchanged: {new_score}")
+
+        file_logger.info(f"\n{'=' * 80}")
+        file_logger.info("SCORING COMPLETED")
+        file_logger.info(f"{'=' * 80}\n")
 
     if score_updates:
+        file_logger_main.info(f"\n[STEP 5] Bulk Updating {len(score_updates)} Applications in Database...")
         JobApplication.objects.bulk_update(score_updates, ["score"])
+        file_logger_main.info(f"✓ {len(score_updates)} applications updated successfully")
+    else:
+        file_logger_main.info(f"\n[STEP 5] No score updates needed")
+
+    file_logger_main.info("\n" + "=" * 80)
+    file_logger_main.info("RESUME SCORING COMPLETED SUCCESSFULLY ✓")
+    file_logger_main.info("=" * 80 + "\n")
+
+@shared_task(queue="get-questions")
+def get_questions_from_jd(job_id, requested_count=15):
+    try:
+        from google import genai
+    except ImportError:
+        logger.exception("google-genai is not installed; cannot generate AI interview questions")
+        return {
+            "created": 0,
+            "total": JobQuestions.objects.filter(job_id=job_id).count(),
+            "message": "AI provider dependency not installed",
+        }
+
+    with transaction.atomic():
+        job_details = Job.objects.select_for_update().get(pk=job_id)
+
+        current_count = JobQuestions.objects.filter(job_id=job_id).count()
+        available_slots = max(JobQuestions.MAX_QUESTIONS_PER_JOB - current_count, 0)
+        if available_slots <= 0:
+            return {
+                "created": 0,
+                "total": current_count,
+                "message": "Question limit reached",
+            }
+
+        target_count = min(max(int(requested_count or 0), 1), available_slots)
+
+    job_ex = job_details.minimum_experience_required
+    skills = list(job_details.skills.values_list("name", flat=True))
+    job_title = job_details.title
+
+    api_key = (
+        os.getenv("GEMINI_API")
+        or os.getenv("GOOGLE_API_KEY")
+        or getattr(settings, "GEMINI_API", None)
+        or getattr(settings, "GOOGLE_API_KEY", None)
+    )
+
+    if not api_key:
+        logger.error("Missing Gemini API key. Set GEMINI_API or GOOGLE_API_KEY")
+        return {
+            "created": 0,
+            "total": current_count,
+            "message": "Missing Gemini API key",
+        }
+
+    try:
+        client = genai.Client(api_key=api_key)
+    except Exception:
+        logger.exception("Failed to initialize Gemini client")
+        return {
+            "created": 0,
+            "total": current_count,
+            "message": "Failed to initialize AI client",
+        }
+
+    prompt = (
+        "Generate interview questions as a strict JSON array of strings. "
+        f"Return exactly {target_count} concise questions for role '{job_title}', "
+        f"minimum experience {job_ex} years, with focus on skills: {', '.join(skills) if skills else 'general role fit'}. "
+        "Do not include numbering, markdown, or extra text."
+    )
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
+    except Exception:
+        logger.exception("Gemini generate_content failed")
+        return {
+            "created": 0,
+            "total": current_count,
+            "message": "AI generation failed",
+        }
+
+    raw_text = (getattr(response, "text", "") or "").strip()
+    if not raw_text:
+        return {
+            "created": 0,
+            "total": current_count,
+            "message": "Empty response from model",
+        }
+
+    parsed_questions = []
+
+    try:
+        loaded = json.loads(raw_text)
+        if isinstance(loaded, list):
+            parsed_questions = [str(item).strip() for item in loaded if str(item).strip()]
+    except json.JSONDecodeError:
+        fallback = [part.strip(" -•\t\n\r") for part in re.split(r"\n+|,", raw_text)]
+        parsed_questions = [item for item in fallback if item]
+
+    deduped_questions = []
+    seen = set()
+    for q in parsed_questions:
+        key = q.lower()
+        if key not in seen:
+            seen.add(key)
+            deduped_questions.append(q)
+
+    if not deduped_questions:
+        return {
+            "created": 0,
+            "total": current_count,
+            "message": "No valid questions generated",
+        }
+
+    with transaction.atomic():
+        locked_job = Job.objects.select_for_update().get(pk=job_id)
+
+        current_count = JobQuestions.objects.filter(job_id=job_id).count()
+        available_slots = max(JobQuestions.MAX_QUESTIONS_PER_JOB - current_count, 0)
+        if available_slots <= 0:
+            return {
+                "created": 0,
+                "total": current_count,
+                "message": "Question limit reached",
+            }
+
+        create_limit = min(target_count, available_slots)
+
+        existing_lower = set(
+            JobQuestions.objects.filter(job_id=job_id).values_list("question", flat=True)
+        )
+        existing_lower = {q.lower().strip() for q in existing_lower if q}
+
+        to_create = []
+        for q in deduped_questions:
+            normalized = q.lower().strip()
+            if normalized in existing_lower:
+                continue
+            to_create.append(JobQuestions(job=locked_job, question=q[:500]))
+            if len(to_create) >= create_limit:
+                break
+
+        if not to_create:
+            return {
+                "created": 0,
+                "total": current_count,
+                "message": "Generated questions were duplicates",
+            }
+
+        JobQuestions.objects.bulk_create(to_create)
+
+        final_total = JobQuestions.objects.filter(job_id=job_id).count()
+        return {
+            "created": len(to_create),
+            "total": final_total,
+            "message": "Questions created",
+        }
