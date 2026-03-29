@@ -52,6 +52,8 @@ class User(AbstractUser):
     phone = models.CharField(max_length=30, blank=True, default="")
     location = models.CharField(max_length=255, blank=True, default="")
     is_verified = models.BooleanField(default=False)
+    auth_provider = models.CharField(max_length=32, default="password")
+    google_sub = models.CharField(max_length=255, blank=True, null=True, unique=True)
     otp_code = models.CharField(max_length=6, blank=True, default="")
     otp_expires_at = models.DateTimeField(blank=True, null=True)
 

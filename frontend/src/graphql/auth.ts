@@ -67,6 +67,72 @@ export const LOGIN_COMPANY = gql`
   }
 `;
 
+export const GOOGLE_APPLICANT_AUTH = gql`
+  mutation GoogleApplicantAuth($idToken: String!) {
+    googleApplicantAuth(idToken: $idToken) {
+      token
+      message
+      user {
+        id
+        username
+        email
+        firstName
+        lastName
+        isRecruiter
+        phone
+        location
+
+        skills {
+          id
+          name
+        }
+
+        onboardingCompletedAt
+        primaryResumeUrl
+        profileCompletion
+        profileSections
+        canApply
+        nudgeMessages
+      }
+    }
+  }
+`;
+
+export const GOOGLE_COMPANY_AUTH = gql`
+  mutation GoogleCompanyAuth($idToken: String!) {
+    googleCompanyAuth(idToken: $idToken) {
+      token
+      message
+      user {
+        id
+        username
+        email
+        firstName
+        lastName
+        isRecruiter
+        phone
+        location
+
+        skills {
+          id
+          name
+        }
+
+        onboardingCompletedAt
+        primaryResumeUrl
+        profileCompletion
+        profileSections
+        canApply
+        nudgeMessages
+        company {
+          id
+          name
+        }
+      }
+    }
+  }
+`;
+
 export const REGISTER_USER = gql`
   mutation RegisterUser(
     $username: String!
@@ -142,6 +208,24 @@ export const VERIFY_USER_OTP = gql`
 export const RESEND_USER_OTP = gql`
   mutation ResendUserOtp($email: String!) {
     resendUserOtp(email: $email) {
+      success
+      message
+    }
+  }
+`;
+
+export const REQUEST_PASSWORD_RESET_OTP = gql`
+  mutation RequestPasswordResetOtp($email: String!) {
+    requestPasswordResetOtp(email: $email) {
+      success
+      message
+    }
+  }
+`;
+
+export const RESET_PASSWORD_WITH_OTP = gql`
+  mutation ResetPasswordWithOtp($email: String!, $otp: String!, $newPassword: String!) {
+    resetPasswordWithOtp(email: $email, otp: $otp, newPassword: $newPassword) {
       success
       message
     }
@@ -271,6 +355,40 @@ export const UPLOAD_PRIMARY_RESUME = gql`
         profileSections
         canApply
         nudgeMessages
+      }
+    }
+  }
+`;
+
+export const UPDATE_USERNAME = gql`
+  mutation UpdateUsername($username: String!) {
+    updateUsername(username: $username) {
+      message
+      user {
+        id
+        username
+        email
+        firstName
+        lastName
+        isRecruiter
+        phone
+        location
+
+        skills {
+          id
+          name
+        }
+
+        onboardingCompletedAt
+        primaryResumeUrl
+        profileCompletion
+        profileSections
+        canApply
+        nudgeMessages
+        company {
+          id
+          name
+        }
       }
     }
   }

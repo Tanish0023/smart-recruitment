@@ -1,0 +1,21 @@
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ("users", "0008_enforce_user_skills_fk_cascade"),
+    ]
+
+    operations = [
+        migrations.AddField(
+            model_name="user",
+            name="auth_provider",
+            field=models.CharField(default="password", max_length=32),
+        ),
+        migrations.AddField(
+            model_name="user",
+            name="google_sub",
+            field=models.CharField(blank=True, max_length=255, null=True, unique=True),
+        ),
+    ]

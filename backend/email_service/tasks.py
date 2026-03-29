@@ -175,3 +175,30 @@ def send_otp_verification_email(
         user_email=user_email,
         category="otp-verification",
     )
+
+
+@shared_task(queue="email_service")
+def send_password_reset_otp_email(
+    user_email: str,
+    recipient_name: str,
+    otp_code: str,
+) -> None:
+    subject = "Password reset OTP"
+    html_message = render_to_string(
+        "email_service/otp_verification.html",
+        {
+            "recipient_name": recipient_name,
+            "otp_code": otp_code,
+            "entity_label": "Password reset",
+            "current_year": timezone.now().year,
+        },
+    )
+    message = strip_tags(html_message)
+
+    _send_email(
+        subject=subject,
+        html_message=html_message,
+        message=message,
+        user_email=user_email,
+        category="password-reset",
+    )

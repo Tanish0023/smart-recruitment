@@ -17,7 +17,9 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
-import { REGISTER_USER } from "@/graphql/auth";
+import { GOOGLE_APPLICANT_AUTH, REGISTER_USER } from "@/graphql/auth";
+import { useAuth } from "@/contexts/AuthContext";
+import { requestGoogleIdToken } from "@/lib/googleAuth";
 
 const schema = z
     .object({
@@ -25,7 +27,7 @@ const schema = z
             .string()
             .min(3, "Username must be at least 3 characters")
             .max(30, "Username too long")
-            .regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers and underscores"),
+            .regex(/^[a-zA-Z0-9_]+$/, "Use only letters, numbers and underscores"),
         email: z.email("Enter a valid email address"),
         password: z
             .string()
@@ -43,6 +45,7 @@ type FormData = z.infer<typeof schema>;
 
 export default function ApplicantRegister() {
     const navigate = useNavigate();
+    const { login } = useAuth();
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const [serverError, setServerError] = useState("");
@@ -63,11 +66,33 @@ export default function ApplicantRegister() {
         },
     });
 
+    const [googleAuthMutation, { loading: googleLoading }] = useMutation(GOOGLE_APPLICANT_AUTH, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onCompleted(data: any) {
+            const { token, user } = data.googleApplicantAuth;
+            login(token, user);
+            navigate("/applicant/dashboard");
+        },
+        onError(err: Error) {
+            setServerError(err.message);
+        },
+    });
+
     function onSubmit({ username, email, password }: FormData) {
         setServerError("");
         registerMutation({
             variables: { username, email, password, isRecruiter: false },
         });
+    }
+
+    async function onGoogleSignUp() {
+        setServerError("");
+        try {
+            const idToken = await requestGoogleIdToken();
+            googleAuthMutation({ variables: { idToken } });
+        } catch (err) {
+            setServerError(err instanceof Error ? err.message : "Google signup failed");
+        }
     }
 
     return (
@@ -81,6 +106,28 @@ export default function ApplicantRegister() {
         >
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={loading || googleLoading}
+                        onClick={onGoogleSignUp}
+                        className="w-full border-gray-300 hover:bg-gray-50"
+                    >
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                            <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.2-1.4 3.6-5.5 3.6-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.1.8 3.9 1.4l2.7-2.6C16.9 2.9 14.7 2 12 2 6.5 2 2 6.5 2 12s4.5 10 10 10c5.8 0 9.6-4 9.6-9.7 0-.7-.1-1.3-.2-1.9H12z" />
+                        </svg>
+                        Continue with Google
+                    </Button>
+
+                    <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t border-gray-200 dark:border-slate-700" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-white dark:bg-slate-900 px-2 text-gray-500 dark:text-slate-400">Or register with email</span>
+                        </div>
+                    </div>
+
                     {/* Username */}
                     <FormField
                         control={form.control}
@@ -187,7 +234,7 @@ export default function ApplicantRegister() {
 
                     <Button
                         type="submit"
-                        disabled={loading}
+                        disabled={loading || googleLoading}
                         className="w-full bg-linear-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold shadow-md hover:shadow-lg transition-all"
                     >
                         {loading ? (

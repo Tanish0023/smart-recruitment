@@ -13,6 +13,7 @@ import CompanyLogin from "@/pages/company/CompanyLogin";
 import CompanyRegister from "@/pages/company/CompanyRegister";
 import CompanyVerifyOtp from "@/pages/company/CompanyVerifyOtp";
 import CompanyDashboard from "@/pages/company/CompanyDashboard";
+import ForgotPassword from "@/pages/auth/ForgotPassword";
 import NewLandingPage from "./pages/landing/NewLandingPage/NewLandingPage";
 import JobsPage from "@/pages/jobs/JobsPage";
 import JobDetailPage from "@/pages/jobs/JobDetailPage";
@@ -57,6 +58,10 @@ function App() {
             <Route path="/applicant/login" element={<RedirectIfAuthenticated><ApplicantLogin /></RedirectIfAuthenticated>} />
             <Route path="/applicant/register" element={<RedirectIfAuthenticated><ApplicantRegister /></RedirectIfAuthenticated>} />
             <Route path="/applicant/verify-otp" element={<RedirectIfAuthenticated><ApplicantVerifyOtp /></RedirectIfAuthenticated>} />
+            <Route
+              path="/applicant/forgot-password"
+              element={<RedirectIfAuthenticated><ForgotPassword role="applicant" /></RedirectIfAuthenticated>}
+            />
 
             {/* Applicant dashboard (auth guarded) */}
             <Route
@@ -72,6 +77,10 @@ function App() {
             <Route path="/company/login" element={<CompanyLogin />} />
             <Route path="/company/register" element={<CompanyRegister />} />
             <Route path="/company/verify-otp" element={<CompanyVerifyOtp />} />
+            <Route
+              path="/company/forgot-password"
+              element={<RedirectIfAuthenticated><ForgotPassword role="company" /></RedirectIfAuthenticated>}
+            />
 
             {/* Company dashboard (recruiter only, auth guarded) */}
             <Route

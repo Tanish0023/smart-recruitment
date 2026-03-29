@@ -16,8 +16,8 @@ A modern, AI-powered recruitment platform that streamlines hiring through automa
 ## 🏗️ Architecture
 
 ### High Level Diagram
-<img width="3010" height="1462" alt="image" src="https://github.com/user-attachments/assets/1ef39bb9-928e-4f6b-a922-e61dc3fb2961" />
 
+<img width="3010" height="1462" alt="image" src="https://github.com/user-attachments/assets/1ef39bb9-928e-4f6b-a922-e61dc3fb2961" />
 
 ### System Overview
 
@@ -67,7 +67,7 @@ erDiagram
     User ||--o{ Resume : "uploads"
     Resume ||--o{ JobApplication : "used in"
     Skill }o--o{ Category : "categorized by"
-    
+
     Company {
         int id PK
         string name
@@ -78,7 +78,7 @@ erDiagram
         datetime otp_expires_at
         datetime created_at
     }
-    
+
     User {
         int id PK
         string username
@@ -95,7 +95,7 @@ erDiagram
         datetime onboarding_completed_at
         int primary_resume_id FK
     }
-    
+
     Job {
         int id PK
         string title
@@ -109,7 +109,7 @@ erDiagram
         datetime created_at
         datetime updated_at
     }
-    
+
     JobApplication {
         int id PK
         int job_id FK
@@ -120,7 +120,7 @@ erDiagram
         datetime applied_at
         datetime updated_at
     }
-    
+
     Resume {
         int id PK
         string file
@@ -130,14 +130,14 @@ erDiagram
         datetime uploaded_at
         datetime updated_at
     }
-    
+
     Skill {
         int id PK
         string name
         int category_id FK
         json aliases
     }
-    
+
     Category {
         int id PK
         string name
@@ -148,29 +148,32 @@ erDiagram
 ### Core Components
 
 #### User Management (`users` app)
-- **User Model**: Extends `AbstractUser` with role flags and profile completion logic [1](#1-0) 
-- **Company Model**: Organization entity with OTP verification [2](#1-1) 
+
+- **User Model**: Extends `AbstractUser` with role flags and profile completion logic [1](#1-0)
+- **Company Model**: Organization entity with OTP verification [2](#1-1)
 - **Authentication**: JWT-based with OTP verification for both users and companies
 
 #### Job Management (`jobs` app)
-- **Job Model**: Postings with skills, categories, and experience requirements [3](#1-2) 
-- **JobApplication Model**: Junction model storing match scores and application status [4](#1-3) 
+
+- **Job Model**: Postings with skills, categories, and experience requirements [3](#1-2)
+- **JobApplication Model**: Junction model storing match scores and application status [4](#1-3)
 - **Skills & Categories**: Hierarchical tagging system for better matching
 
 #### Resume Processing (`resumes` app)
-- **Resume Model**: Tracks file processing status (PENDING, PROCESSING, DONE, FAILED) [5](#1-4) 
+
+- **Resume Model**: Tracks file processing status (PENDING, PROCESSING, DONE, FAILED) [5](#1-4)
 - **NLP Pipeline**: Uses spaCy for text extraction and skill identification
 - **Scoring Algorithm**: Semantic similarity calculation using sentence-transformers
 
 ## 🛠️ Technology Stack
 
-| Layer | Technologies | Key Components |
-|-------|--------------|----------------|
-| **Frontend** | React, TypeScript, Tailwind CSS, Apollo Client | `AuthProvider`, `RequireAuth`, `apollo-upload-client` |
-| **Backend** | Django, Graphene (GraphQL), Django REST Framework | `core.settings`, `GraphQLView`, `JWT` |
-| **Database** | PostgreSQL, Redis (Broker/Cache) | `psycopg2-binary`, `django-redis` |
-| **Task Queue** | Celery, Flower (Monitoring) | `celery_worker`, `celery_email`, `resume_parsing` |
-| **NLP/AI** | Spacy, Sentence-Transformers, PyPDF2 | `resume_parsing` task, `scoring_resume` task |
+| Layer          | Technologies                                      | Key Components                                        |
+| -------------- | ------------------------------------------------- | ----------------------------------------------------- |
+| **Frontend**   | React, TypeScript, Tailwind CSS, Apollo Client    | `AuthProvider`, `RequireAuth`, `apollo-upload-client` |
+| **Backend**    | Django, Graphene (GraphQL), Django REST Framework | `core.settings`, `GraphQLView`, `JWT`                 |
+| **Database**   | PostgreSQL, Redis (Broker/Cache)                  | `psycopg2-binary`, `django-redis`                     |
+| **Task Queue** | Celery, Flower (Monitoring)                       | `celery_worker`, `celery_email`, `resume_parsing`     |
+| **NLP/AI**     | Spacy, Sentence-Transformers, PyPDF2              | `resume_parsing` task, `scoring_resume` task          |
 
 ## 📁 Project Structure
 
@@ -222,14 +225,14 @@ sequenceDiagram
     B->>B: Generate OTP (6-digit, 10min expiry)
     B->>E: Send OTP Email
     E-->>U: OTP Verification Email
-    
+
     U->>F: Submit OTP
     F->>B: GraphQL Verify OTP Mutation
     B->>B: Validate OTP & Expiry
     B->>D: Update User (is_verified=true)
     B->>F: Return JWT Token
     F->>F: Store Token in AuthContext
-    
+
     Note over U,D: User now authenticated for 7 days
 ```
 
@@ -248,17 +251,17 @@ sequenceDiagram
     B->>D: Create Resume (status=PENDING)
     B->>R: Dispatch 'resume_parsing' task
     R->>C: Execute NLP Processing
-    
+
     C->>C: Extract text from PDF
     C->>C: Clean and normalize text
     C->>C: Extract sections (experience, education, skills)
     C->>C: Identify skills using spaCy NER
     C->>M: Generate text embeddings
     C->>D: Update Resume (status=DONE, parsed_data)
-    
+
     Note over C,D: If parsing fails
     C->>D: Update Resume (status=FAILED)
-    
+
     B-->>A: Resume processing complete
 ```
 
@@ -279,14 +282,14 @@ sequenceDiagram
     B->>B: Create JobApplication (status=reviewing)
     B->>R: Queue scoring_resume task
     R->>C: Process semantic scoring
-    
+
     C->>C: Calculate skill match (50% weight)
     C->>C: Calculate category match (20% weight)
     C->>C: Calculate experience match (15% weight)
     C->>C: Calculate semantic similarity (15% weight)
     C->>C: Apply gating logic (skill_score < 0.3)
     C->>B: Update application score (0.0-1.0)
-    
+
     RC->>F: View job applicants
     F->>B: jobApplicants Query (sort_by=RANKING)
     B->>B: Order by score DESC, applied_at DESC
@@ -301,12 +304,12 @@ graph TD
     subgraph "React App Structure"
         App["App.tsx"]
         Router["BrowserRouter"]
-        
+
         subgraph "Authentication"
             AuthProv["AuthProvider"]
             RequireAuth["RequireAuth HOC"]
         end
-        
+
         subgraph "Pages"
             Login["LoginPage"]
             Register["RegisterPage"]
@@ -315,21 +318,21 @@ graph TD
             JobDetail["JobDetailPage"]
             CompanyDash["CompanyDashboard"]
         end
-        
+
         subgraph "Components"
             NavBar["NavigationBar"]
             JobCard["JobCard"]
             ApplicantCard["ApplicantCard"]
             ResumeUpload["ResumeUpload"]
         end
-        
+
         subgraph "GraphQL Layer"
             Apollo["ApolloProvider"]
             Queries["GraphQL Queries"]
             Mutations["GraphQL Mutations"]
         end
     end
-    
+
     App --> Router
     Router --> AuthProv
     AuthProv --> RequireAuth
@@ -339,11 +342,11 @@ graph TD
     RequireAuth --> RecruiterDash
     RequireAuth --> JobDetail
     RequireAuth --> CompanyDash
-    
+
     ApplicantDash --> JobCard
     RecruiterDash --> ApplicantCard
     ApplicantDash --> ResumeUpload
-    
+
     AuthProv --> Apollo
     Apollo --> Queries
     Apollo --> Mutations
@@ -368,6 +371,7 @@ docker compose up --build
 ### Local Development
 
 #### Backend Setup
+
 ```bash
 cd backend
 python -m venv venv
@@ -378,6 +382,7 @@ python manage.py runserver
 ```
 
 #### Frontend Setup
+
 ```bash
 cd frontend
 npm install
@@ -387,7 +392,9 @@ npm run dev
 ## ⚙️ Configuration
 
 ### Backend Environment Variables
+
 Create `.env` in backend:
+
 ```
 DEBUG=True
 SECRET_KEY=your-secret-key
@@ -395,19 +402,24 @@ DATABASE_URL=postgresql://postgres:postgres@db:5432/recruitment_db
 REDIS_URL=redis://redis:6379/0
 MAILTRAP_API_TOKEN=your-mailtrap-token
 DEFAULT_FROM_EMAIL=noreply@yourcompany.com
+GOOGLE_OAUTH_CLIENT_IDS=your-google-web-client-id.apps.googleusercontent.com
 ```
 
 ### Frontend Environment Variables
+
 Create `.env.local` in frontend:
+
 ```
 VITE_GRAPHQL_URL=http://localhost:8000/graphql/
 VITE_API_URL=http://localhost:8000/api/
+VITE_GOOGLE_CLIENT_ID=your-google-web-client-id.apps.googleusercontent.com
 ```
 
 ## 🔑 Key Features Implementation
 
 ### Profile Completion Algorithm
-Calculated as: 40% (Basic Info) + 40% (Skills) + 20% (Resume) [6](#1-5) 
+
+Calculated as: 40% (Basic Info) + 40% (Skills) + 20% (Resume) [6](#1-5)
 
 ```python
 def profile_completion_percent(self):
@@ -421,7 +433,8 @@ def profile_completion_percent(self):
 ```
 
 ### Email Service Architecture
-Uses Mailtrap API with SMTP fallback for transactional emails [7](#1-6) 
+
+Uses Mailtrap API with SMTP fallback for transactional emails [7](#1-6)
 
 ```mermaid
 graph LR
@@ -435,7 +448,8 @@ graph LR
 ```
 
 ### Resume Scoring Algorithm
-Applications are scored between 0.0 and 1.0 based on multiple factors [8](#1-7) 
+
+Applications are scored between 0.0 and 1.0 based on multiple factors [8](#1-7)
 
 ```python
 def calculate_final_score(skill, category, experience, semantic):
@@ -450,16 +464,20 @@ def calculate_final_score(skill, category, experience, semantic):
 ### GraphQL API Schema
 
 #### Authentication Mutations
+
 ```graphql
 mutation {
   register(username: String!, email: String!, password: String!)
   verifyUserOtp(otp: String!)
   applicantLogin(username: String!, password: String!)
   companyLogin(username: String!, password: String!)
+    googleApplicantAuth(idToken: String!)
+    googleCompanyAuth(idToken: String!, companyName: String, companyWebsite: String)
 }
 ```
 
 #### Job Management
+
 ```graphql
 query {
   allJobs {
@@ -480,6 +498,7 @@ mutation {
 ## 🧪 Development Guidelines
 
 ### Code Quality
+
 ```bash
 # Backend: Flake8
 cd backend
@@ -491,6 +510,7 @@ npm run lint
 ```
 
 ### Testing
+
 ```bash
 # Backend
 cd backend
@@ -504,22 +524,24 @@ npm run build
 ## 📊 Monitoring & Performance
 
 ### System Monitoring
+
 - **Flower**: Celery task monitoring at http://localhost:5555
 - **GraphQL Playground**: Interactive API testing at http://localhost:8000/graphql/
 - **Database**: PostgreSQL with connection pooling
 - **Redis**: Message broker and caching layer
 
 ### Performance Metrics
+
 ```mermaid
 graph TD
     A["Request In"] --> B["Response Time < 200ms"]
     A --> C["Resume Processing < 30s"]
     A --> D["Scoring < 5s per application"]
-    
+
     B --> E["Frontend: React + Apollo Cache"]
     C --> F["Backend: Celery + spaCy NLP"]
     D --> G["ML: Sentence Transformers"]
-    
+
     E --> H["Optimized GraphQL Queries"]
     F --> I["Async Task Queue"]
     G --> J["Pre-trained Models"]
@@ -529,5 +551,3 @@ graph TD
 
 - **OTP Verification**: Two-factor authentication for email verification
 - **JWT Authentication**: Secure token-based authentication with 7-day expiration<cite repo="Tan
-
-
