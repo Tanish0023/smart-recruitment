@@ -1,6 +1,7 @@
 import graphene
 import logging
 import os
+import re
 from pathlib import Path
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
@@ -8,14 +9,21 @@ from django.db import IntegrityError
 from django.db import transaction
 from django.utils import timezone
 from django.contrib.auth import get_user_model, authenticate
+from django.contrib.auth.password_validation import validate_password
 from graphene_django.types import DjangoObjectType
 from graphene.types.generic import GenericScalar
 from graphene_file_upload.scalars import Upload
 from graphql import GraphQLError
 import graphql_jwt
 from graphql_jwt.shortcuts import get_token
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
 from .decorators import login_required, admin_required
-from email_service.tasks import send_registration_thank_you_email, send_otp_verification_email
+from email_service.tasks import (
+    send_registration_thank_you_email,
+    send_otp_verification_email,
+    send_password_reset_otp_email,
+)
 
 from .models import Company
 from jobs.models import Job, JobApplication
@@ -30,6 +38,71 @@ except ImportError:
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_]+$")
+
+
+def _get_google_client_ids():
+    raw_value = os.getenv("GOOGLE_OAUTH_CLIENT_IDS") or os.getenv("GOOGLE_OAUTH_CLIENT_ID")
+    if not raw_value:
+        return []
+    return [item.strip() for item in raw_value.split(",") if item.strip()]
+
+
+def _verify_google_id_token(raw_id_token):
+    client_ids = _get_google_client_ids()
+    if not client_ids:
+        raise GraphQLError("Google OAuth is not configured on the server")
+
+    try:
+        payload = google_id_token.verify_oauth2_token(
+            raw_id_token,
+            google_requests.Request(),
+            audience=None,
+        )
+    except ValueError as exc:
+        raise GraphQLError("Invalid Google token") from exc
+
+    aud = payload.get("aud")
+    if aud not in client_ids:
+        raise GraphQLError("Google token audience mismatch")
+
+    if payload.get("iss") not in {"accounts.google.com", "https://accounts.google.com"}:
+        raise GraphQLError("Invalid Google token issuer")
+
+    if not payload.get("email_verified"):
+        raise GraphQLError("Google account email is not verified")
+
+    email = (payload.get("email") or "").strip().lower()
+    subject = (payload.get("sub") or "").strip()
+    if not email or not subject:
+        raise GraphQLError("Google token is missing required identity fields")
+
+    return {
+        "email": email,
+        "sub": subject,
+        "given_name": (payload.get("given_name") or "").strip(),
+        "family_name": (payload.get("family_name") or "").strip(),
+        "name": (payload.get("name") or "").strip(),
+    }
+
+
+def _build_unique_username(seed):
+    normalized = re.sub(r"[^a-zA-Z0-9_]", "_", (seed or "").strip().lower())
+    base = normalized[:24] if normalized else "google_user"
+    candidate = base
+    suffix = 1
+    while User.objects.filter(username=candidate).exists():
+        candidate = f"{base}_{suffix}"
+        suffix += 1
+    return candidate
+
+
+def _find_google_user(identity):
+    by_sub = User.objects.filter(google_sub=identity["sub"]).first()
+    if by_sub:
+        return by_sub
+
+    return User.objects.filter(email__iexact=identity["email"]).first()
 
 
 class CompanyType(DjangoObjectType):
@@ -171,13 +244,17 @@ class RegisterUser(graphene.Mutation):
         company_id = graphene.Int()
 
     def mutate(self, info, username, email, password, is_recruiter=False, company_id=None):
-        if User.objects.filter(username=username).exists():
+        normalized_username = (username or "").strip().lower()
+        if not USERNAME_PATTERN.fullmatch(normalized_username):
+            raise GraphQLError("Username must contain only letters, numbers, and underscores")
+
+        if User.objects.filter(username__iexact=normalized_username).exists():
             raise GraphQLError("Username already exists. Please choose a different username.")
 
         if User.objects.filter(email__iexact=email).exists():
             raise GraphQLError("Email is already registered. Please use another email or login.")
 
-        user = User(username=username, email=email, is_recruiter=is_recruiter, is_verified=False)
+        user = User(username=normalized_username, email=email, is_recruiter=is_recruiter, is_verified=False)
         if company_id:
             try:
                 company = Company.objects.get(pk=company_id)
@@ -263,6 +340,68 @@ class ResendUserOtp(graphene.Mutation):
             entity_type="user",
         )
         return ResendUserOtp(success=True, message="OTP resent and valid for 10 minutes")
+
+
+class RequestPasswordResetOtp(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    class Arguments:
+        email = graphene.String(required=True)
+
+    def mutate(self, info, email):
+        normalized_email = (email or "").strip().lower()
+        if not normalized_email:
+            raise GraphQLError("Email is required")
+
+        user = User.objects.filter(email__iexact=normalized_email).first()
+        if user:
+            user.generate_otp()
+            user.save(update_fields=["otp_code", "otp_expires_at"])
+            send_password_reset_otp_email.delay(
+                user_email=user.email,
+                recipient_name=user.username,
+                otp_code=user.otp_code,
+            )
+
+        # Avoid leaking whether an email exists in the system.
+        return RequestPasswordResetOtp(
+            success=True,
+            message="If an account exists for this email, a reset OTP has been sent.",
+        )
+
+
+class ResetPasswordWithOtp(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    class Arguments:
+        email = graphene.String(required=True)
+        otp = graphene.String(required=True)
+        new_password = graphene.String(required=True)
+
+    def mutate(self, info, email, otp, new_password):
+        normalized_email = (email or "").strip().lower()
+        if not normalized_email:
+            raise GraphQLError("Email is required")
+
+        user = User.objects.filter(email__iexact=normalized_email).first()
+        if not user:
+            raise GraphQLError("Invalid reset details")
+
+        if not user.verify_otp(otp):
+            raise GraphQLError("Invalid or expired OTP")
+
+        try:
+            validate_password(new_password, user=user)
+        except ValidationError as exc:
+            raise GraphQLError(" ".join(exc.messages))
+
+        user.set_password(new_password)
+        user.clear_otp()
+        user.save(update_fields=["password", "otp_code", "otp_expires_at"])
+
+        return ResetPasswordWithOtp(success=True, message="Password reset successful")
 
 
 class VerifyCompanyOtp(graphene.Mutation):
@@ -478,6 +617,99 @@ class CompanyLogin(graphene.Mutation):
         return CompanyLogin(token=token, user=user)  # type: ignore
 
 
+class GoogleApplicantAuth(graphene.Mutation):
+    token = graphene.String()
+    user = graphene.Field(UserType)
+    message = graphene.String()
+
+    class Arguments:
+        id_token = graphene.String(required=True)
+
+    def mutate(self, info, id_token):
+        identity = _verify_google_id_token(id_token)
+        user = _find_google_user(identity)
+
+        if user and user.is_recruiter:
+            raise GraphQLError("This Google account is linked to a recruiter account")
+
+        is_new = False
+        if not user:
+            given_name = identity["given_name"] or "candidate"
+            user = User(
+                username=_build_unique_username(given_name),
+                email=identity["email"],
+                is_recruiter=False,
+                is_verified=True,
+                auth_provider="google",
+                google_sub=identity["sub"],
+                first_name=identity["given_name"],
+                last_name=identity["family_name"],
+            )
+            user.set_unusable_password()
+            user.save()
+            is_new = True
+        else:
+            update_fields = []
+            if not user.google_sub:
+                user.google_sub = identity["sub"]
+                update_fields.append("google_sub")
+            if user.auth_provider != "google":
+                user.auth_provider = "google"
+                update_fields.append("auth_provider")
+            if not user.is_verified:
+                user.is_verified = True
+                update_fields.append("is_verified")
+            if update_fields:
+                user.save(update_fields=update_fields)
+
+        token = get_token(user)
+        message = "Google signup successful" if is_new else "Google login successful"
+        return GoogleApplicantAuth(token=token, user=user, message=message)  # type: ignore
+
+
+class GoogleCompanyAuth(graphene.Mutation):
+    token = graphene.String()
+    user = graphene.Field(UserType)
+    message = graphene.String()
+
+    class Arguments:
+        id_token = graphene.String(required=True)
+
+    def mutate(self, info, id_token):
+        identity = _verify_google_id_token(id_token)
+        user = _find_google_user(identity)
+
+        if user and not user.is_recruiter:
+            raise GraphQLError("This Google account is linked to an applicant account")
+
+        if not user:
+            raise GraphQLError(
+                "No recruiter account found for this Google email. Please register your company first."
+            )
+
+        if not user.company:
+            raise GraphQLError("Recruiter account is missing an associated company")
+        if not user.company.is_verified:
+            raise GraphQLError("Company is not verified")
+
+        update_fields = []
+        if not user.google_sub:
+            user.google_sub = identity["sub"]
+            update_fields.append("google_sub")
+        if user.auth_provider != "google":
+            user.auth_provider = "google"
+            update_fields.append("auth_provider")
+        if not user.is_verified:
+            user.is_verified = True
+            update_fields.append("is_verified")
+        if update_fields:
+            user.save(update_fields=update_fields)
+
+        token = get_token(user)
+        message = "Google recruiter login successful"
+        return GoogleCompanyAuth(token=token, user=user, message=message)  # type: ignore
+
+
 class DeleteUser(graphene.Mutation):
     success = graphene.Boolean()
 
@@ -506,6 +738,36 @@ class DeleteUser(graphene.Mutation):
         return DeleteUser(success=True)
 
 
+class UpdateUsername(graphene.Mutation):
+    user = graphene.Field(UserType)
+    message = graphene.String()
+
+    class Arguments:
+        username = graphene.String(required=True)
+
+    @login_required
+    def mutate(self, info, username):
+        user = info.context.user
+        normalized_username = (username or "").strip().lower()
+        if not USERNAME_PATTERN.fullmatch(normalized_username):
+            raise GraphQLError("Username must contain only letters, numbers, and underscores")
+
+        if user.username == normalized_username:
+            return UpdateUsername(user=user, message="Username is already set to this value")
+
+        username_taken = User.objects.filter(username__iexact=normalized_username).exclude(id=user.id).exists()
+        if username_taken:
+            raise GraphQLError("Username already exists. Please choose a different username.")
+
+        user.username = normalized_username
+        try:
+            user.save(update_fields=["username"])
+        except IntegrityError:
+            raise GraphQLError("Username already exists. Please choose a different username.")
+
+        return UpdateUsername(user=user, message="Username updated successfully")
+
+
 class Mutation(graphene.ObjectType):
     register = RegisterUser.Field()
     create_company = CreateCompany.Field()
@@ -513,12 +775,17 @@ class Mutation(graphene.ObjectType):
     resend_user_otp = ResendUserOtp.Field()
     verify_company_otp = VerifyCompanyOtp.Field()
     resend_company_otp = ResendCompanyOtp.Field()
+    request_password_reset_otp = RequestPasswordResetOtp.Field()
+    reset_password_with_otp = ResetPasswordWithOtp.Field()
     applicant_login = ApplicantLogin.Field()
     company_login = CompanyLogin.Field()
+    google_applicant_auth = GoogleApplicantAuth.Field()
+    google_company_auth = GoogleCompanyAuth.Field()
     complete_applicant_onboarding = CompleteApplicantOnboarding.Field()
     update_applicant_profile_section = UpdateApplicantProfileSection.Field()
     upload_primary_resume = UploadPrimaryResume.Field()
     delete_user = DeleteUser.Field()
+    update_username = UpdateUsername.Field()
 
     token_auth = graphql_jwt.ObtainJSONWebToken.Field()
     verify_token = graphql_jwt.Verify.Field()

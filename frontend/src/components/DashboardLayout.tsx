@@ -1,16 +1,21 @@
 import { useState, type ReactNode } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { useMutation } from "@apollo/client/react";
 import {
     Rocket,
     LogOut,
     Menu,
     X,
     ChevronRight,
+    Pencil,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { UPDATE_USERNAME } from "@/graphql/auth";
 
 interface NavItem {
     label: string;
@@ -27,13 +32,46 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ navItems, children, title, hideHeader, sidebarContent }: DashboardLayoutProps) {
-    const { user, logout } = useAuth();
+    const { user, token, login, logout } = useAuth();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [usernameDialogOpen, setUsernameDialogOpen] = useState(false);
+    const [usernameInput, setUsernameInput] = useState("");
+    const [usernameError, setUsernameError] = useState("");
+
+    const [updateUsername, { loading: updatingUsername }] = useMutation(UPDATE_USERNAME, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onCompleted(data: any) {
+            if (token && data?.updateUsername?.user) {
+                login(token, data.updateUsername.user);
+            }
+            setUsernameDialogOpen(false);
+            setUsernameError("");
+        },
+        onError(err) {
+            setUsernameError(err.message);
+        },
+    });
 
     function handleLogout() {
         logout();
         navigate("/");
+    }
+
+    function handleOpenUsernameDialog() {
+        setUsernameInput(user?.username ?? "");
+        setUsernameError("");
+        setUsernameDialogOpen(true);
+    }
+
+    function handleUpdateUsername() {
+        const trimmed = usernameInput.trim().toLowerCase();
+        if (!/^[a-z0-9_]+$/.test(trimmed)) {
+            setUsernameError("Use only letters, numbers and underscores.");
+            return;
+        }
+        setUsernameError("");
+        updateUsername({ variables: { username: trimmed } });
     }
 
     const initials = user?.username
@@ -115,6 +153,15 @@ export function DashboardLayout({ navItems, children, title, hideHeader, sidebar
                             <Button
                                 variant="ghost"
                                 size="sm"
+                                onClick={handleOpenUsernameDialog}
+                                className="w-full justify-start gap-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50"
+                            >
+                                <Pencil className="w-4 h-4" />
+                                Change username
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={handleLogout}
                                 className="w-full justify-start gap-2 text-gray-600 hover:text-red-600 hover:bg-red-50"
                             >
@@ -187,6 +234,42 @@ export function DashboardLayout({ navItems, children, title, hideHeader, sidebar
                 <main className="flex-1 overflow-auto">
                     {children}
                 </main>
+
+                <Dialog open={usernameDialogOpen} onOpenChange={setUsernameDialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Change username</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-slate-300">New username</label>
+                            <Input
+                                value={usernameInput}
+                                onChange={(e) => setUsernameInput(e.target.value)}
+                                placeholder="lowercase_username"
+                                autoFocus
+                            />
+                            <p className="text-xs text-gray-500 dark:text-slate-400">Uppercase letters are automatically converted to lowercase.</p>
+                            {usernameError && <p className="text-xs text-red-600">{usernameError}</p>}
+                        </div>
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setUsernameDialogOpen(false)}
+                                disabled={updatingUsername}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={handleUpdateUsername}
+                                disabled={updatingUsername}
+                            >
+                                {updatingUsername ? "Saving..." : "Save"}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </div>
     );

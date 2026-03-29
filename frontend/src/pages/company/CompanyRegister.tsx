@@ -34,7 +34,7 @@ const schema = z
         username: z
             .string()
             .min(3, "Username must be at least 3 characters")
-            .regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers and underscores"),
+            .regex(/^[a-zA-Z0-9_]+$/, "Use only letters, numbers and underscores"),
         email: z.string().email("Enter a valid email address"),
         password: z
             .string()
