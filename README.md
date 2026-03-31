@@ -1,3 +1,5 @@
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Tanish0023/smart-recruitment)
+
 # Smart Recruitment System
 
 A modern, AI-powered recruitment platform that streamlines hiring through automated resume parsing, semantic scoring, and intelligent candidate matching.
