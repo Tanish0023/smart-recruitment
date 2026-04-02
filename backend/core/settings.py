@@ -20,6 +20,7 @@ import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.celery import CeleryIntegration
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -74,6 +75,9 @@ SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-dev-only")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = get_bool_env("DEBUG", default=False)
+
+if not DEBUG and SECRET_KEY == "django-insecure-dev-only":
+    raise ImproperlyConfigured("SECRET_KEY must be set in production")
 
 ALLOWED_HOSTS = get_list_env("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
@@ -277,7 +281,9 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-if os.getenv("CLOUDINARY_URL"):
+USE_CLOUDINARY_STORAGE = bool(os.getenv("CLOUDINARY_URL"))
+
+if USE_CLOUDINARY_STORAGE:
     DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
 redis_url = os.getenv("REDIS_URL")

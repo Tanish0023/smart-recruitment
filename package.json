@@ -1,0 +1,13 @@
+{
+  "name": "main_app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "docker:up": "docker compose -f docker-compose.dev.yml up",
+    "docker:up:build": "docker compose -f docker-compose.dev.yml up --build",
+    "docker:up:nocache": "docker compose -f docker-compose.dev.yml up --build --no-cache",
+    "docker:down": "docker compose down",
+    "docker:up:flower": "docker compose -f docker-compose.dev.yml --profile monitoring up"
+  }
+}

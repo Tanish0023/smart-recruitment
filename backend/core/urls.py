@@ -13,8 +13,13 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("graphql/", csrf_exempt(FileUploadGraphQLView.as_view(graphiql=True))),
+    path(
+        "graphql/",
+        csrf_exempt(FileUploadGraphQLView.as_view(graphiql=True))
+        if settings.DEBUG
+        else FileUploadGraphQLView.as_view(graphiql=False),
+    ),
 ]
 
-if settings.DEBUG:
+if settings.DEBUG or not settings.USE_CLOUDINARY_STORAGE:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
