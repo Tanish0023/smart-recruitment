@@ -1,0 +1,121 @@
+services:
+
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    restart: unless-stopped
+    ports:
+      - "6400:5432"
+    env_file:
+      - .env.dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "3400:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build: ./backend
+    image: smart-recruitment-backend:latest
+    restart: unless-stopped
+    command: sh entrypoint.dev.sh
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env.dev
+    environment:
+      PYTHONUNBUFFERED: 1
+      POSTGRES_HOST: db
+      REDIS_HOST: redis
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery:
+    image: smart-recruitment-backend:latest
+    container_name: celery_worker
+    restart: unless-stopped
+    command: celery -A core worker -l info -Q resume_parsing --concurrency=2 --without-gossip --without-mingle
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env.dev
+    environment:
+      PYTHONUNBUFFERED: 1
+      POSTGRES_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_email:
+    image: smart-recruitment-backend:latest
+    container_name: celery_email_worker
+    restart: unless-stopped
+    command: celery -A core worker -l info -Q email_service --concurrency=2 --without-gossip --without-mingle
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env.dev
+    environment:
+      PYTHONUNBUFFERED: 1
+      POSTGRES_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  flower:
+    image: smart-recruitment-backend:latest
+    container_name: flower
+    restart: unless-stopped
+    command: celery -A core flower --port=5555
+    profiles:
+      - monitoring
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env.dev
+    environment:
+      PYTHONUNBUFFERED: 1
+      POSTGRES_HOST: db
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/recruitment_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_REDIS_SSL_CERT_REQS: CERT_NONE
+    depends_on:
+      - redis
+      - celery
+      - celery_email
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "8000:80"
+    volumes:
+      - ./nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
