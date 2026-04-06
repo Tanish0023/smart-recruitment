@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "docker:up": "docker compose -f docker-compose.dev.yml up",
+    "docker:up:scale": "docker compose -f docker-compose.dev.yml up --scale backend=2",
     "docker:up:build": "docker compose -f docker-compose.dev.yml up --build",
+    "docker:up:scale:build": "docker compose -f docker-compose.dev.yml up --build --scale backend=2",
     "docker:up:nocache": "docker compose -f docker-compose.dev.yml build --no-cache && docker compose -f docker-compose.dev.yml up",
     "docker:up:detached": "docker compose -f docker-compose.dev.yml up -d",
     "docker:down": "docker compose -f docker-compose.dev.yml down",

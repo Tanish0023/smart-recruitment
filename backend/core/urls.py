@@ -15,9 +15,11 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path(
         "graphql/",
-        csrf_exempt(FileUploadGraphQLView.as_view(graphiql=True))
-        if settings.DEBUG
-        else FileUploadGraphQLView.as_view(graphiql=False),
+        csrf_exempt(
+            FileUploadGraphQLView.as_view(
+                graphiql=settings.DEBUG 
+            )
+        ),
     ),
 ]
 
