@@ -6,8 +6,11 @@
   "scripts": {
     "docker:up": "docker compose -f docker-compose.dev.yml up",
     "docker:up:build": "docker compose -f docker-compose.dev.yml up --build",
-    "docker:up:nocache": "docker compose -f docker-compose.dev.yml up --build --no-cache",
-    "docker:down": "docker compose down",
+    "docker:up:nocache": "docker compose -f docker-compose.dev.yml build --no-cache && docker compose -f docker-compose.dev.yml up",
+    "docker:up:detached": "docker compose -f docker-compose.dev.yml up -d",
+    "docker:down": "docker compose -f docker-compose.dev.yml down",
+    "docker:restart": "docker compose -f docker-compose.dev.yml down && docker compose -f docker-compose.dev.yml up",
+    "docker:logs": "docker compose -f docker-compose.dev.yml logs -f",
     "docker:up:flower": "docker compose -f docker-compose.dev.yml --profile monitoring up"
   }
 }
