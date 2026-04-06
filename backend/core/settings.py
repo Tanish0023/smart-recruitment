@@ -301,10 +301,12 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_TASK_QUEUES = (
     Queue("default"),
     Queue("resume_parsing"),
+    Queue("get-questions"),
     Queue("email_service"),
 )
 CELERY_TASK_ROUTES = {
     "resumes.tasks.resume_parsing": {"queue": "resume_parsing"},
+    "resumes.tasks.get_questions_from_jd": {"queue": "get-questions"},
     "email_service.tasks.send_registration_thank_you_email": {"queue": "email_service"},
 }
 

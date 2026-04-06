@@ -51,7 +51,7 @@ services:
     image: smart-recruitment-backend:latest
     container_name: celery_worker
     restart: unless-stopped
-    command: celery -A core worker -l info -Q resume_parsing --concurrency=2 --without-gossip --without-mingle
+    command: celery -A core worker -l info -Q resume_parsing --concurrency=1 --prefetch-multiplier=1 --without-gossip --without-mingle --without-heartbeat
     volumes:
       - ./backend:/app
     env_file:
@@ -69,7 +69,25 @@ services:
     image: smart-recruitment-backend:latest
     container_name: celery_email_worker
     restart: unless-stopped
-    command: celery -A core worker -l info -Q email_service --concurrency=2 --without-gossip --without-mingle
+    command: celery -A core worker -l info -Q email_service --concurrency=1 --prefetch-multiplier=1 --without-gossip --without-mingle --without-heartbeat
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env.dev
+    environment:
+      PYTHONUNBUFFERED: 1
+      POSTGRES_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_questions:
+    image: smart-recruitment-backend:latest
+    container_name: celery_questions_worker
+    restart: unless-stopped
+    command: celery -A core worker -l info -Q get-questions --concurrency=1 --prefetch-multiplier=1 --without-gossip --without-mingle --without-heartbeat
     volumes:
       - ./backend:/app
     env_file:
@@ -105,6 +123,7 @@ services:
     depends_on:
       - redis
       - celery
+      - celery_questions
       - celery_email
 
   nginx:
