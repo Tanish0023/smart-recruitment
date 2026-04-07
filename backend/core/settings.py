@@ -287,6 +287,24 @@ if USE_CLOUDINARY_STORAGE:
     DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
 redis_url = os.getenv("REDIS_URL")
+
+if redis_url:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": ensure_rediss_ssl_param(redis_url),
+            "TIMEOUT": 300,
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "smart-recruitment-cache",
+            "TIMEOUT": 300,
+        }
+    }
+
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", redis_url or "redis://redis:6379/0")
 celery_result_backend_env = os.getenv("CELERY_RESULT_BACKEND")
 CELERY_TASK_IGNORE_RESULT = get_bool_env("CELERY_TASK_IGNORE_RESULT", default=True)

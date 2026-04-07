@@ -2,6 +2,7 @@ import graphene
 from graphene_django.types import DjangoObjectType
 from graphql import GraphQLError
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from django.db.models import F
 from celery import current_app
@@ -108,7 +109,11 @@ class JobApplicationType(DjangoObjectType):
 
 class JobQuery(graphene.ObjectType):
 
-    all_jobs = graphene.List(JobType)
+    all_jobs = graphene.List(
+        JobType,
+        limit=graphene.Int(required=False, default_value=20),
+        offset=graphene.Int(required=False, default_value=0),
+    )
     all_skills = graphene.List(SkillType)
     all_categories = graphene.List(CategoryType)
     job_detail = graphene.Field(JobType, job_id=graphene.Int(required=True))
@@ -125,8 +130,23 @@ class JobQuery(graphene.ObjectType):
     )
 
     # Public jobs
-    def resolve_all_jobs(self, info):
-        return Job.objects.filter(is_active=True).order_by("-created_at")
+    def resolve_all_jobs(self, info, limit=20, offset=0):
+        safe_limit = max(min(limit or 20, 100), 1)
+        safe_offset = max(offset or 0, 0)
+        cache_key = f"jobs:list:{safe_limit}:{safe_offset}"
+
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        jobs = list(
+            Job.objects.filter(is_active=True)
+            .select_related("company", "created_by")
+            .prefetch_related("categories")
+            .order_by("-created_at")[safe_offset:safe_offset + safe_limit]
+        )
+        cache.set(cache_key, jobs, 60)
+        return jobs
 
     def resolve_all_skills(self, info):
         return Skill.objects.select_related("category").order_by("category__name", "name")
@@ -237,6 +257,8 @@ class CreateJob(graphene.Mutation):
             selected_categories = Category.objects.filter(id__in=categories)
             job.categories.set(selected_categories)
 
+        cache.clear()
+
         return CreateJob(job=job)
 
 
@@ -292,6 +314,7 @@ class UpdateJob(graphene.Mutation):
             job.categories.set(selected_categories)
 
         job.save()
+        cache.clear()
 
         return UpdateJob(job=job)
 
@@ -321,6 +344,7 @@ class DeleteJob(graphene.Mutation):
             raise GraphQLError("Job not found")
 
         job.delete()
+        cache.clear()
 
         return DeleteJob(success=True)
 

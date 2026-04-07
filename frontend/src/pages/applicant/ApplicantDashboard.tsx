@@ -25,6 +25,7 @@ import {
 import { Link, useSearchParams } from "react-router-dom";
 
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { ListItemSkeleton } from "@/components/AppSkeletons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -853,9 +854,7 @@ export default function ApplicantDashboard() {
                         </div>
 
                         {appsLoading && (
-                            <div className="flex items-center gap-2 text-gray-400 py-12 justify-center">
-                                <Loader2 className="w-5 h-5 animate-spin" /> Loading applications...
-                            </div>
+                            <ListItemSkeleton count={4} />
                         )}
 
                         {!appsLoading && applications.length === 0 && (

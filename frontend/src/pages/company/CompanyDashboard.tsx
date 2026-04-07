@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ListItemSkeleton } from "@/components/AppSkeletons";
 import {
     GET_COMPANY_JOBS, GET_JOB_APPLICANTS,
     GET_ALL_SKILLS, GET_ALL_CATEGORIES,
@@ -646,9 +647,7 @@ export default function CompanyDashboard() {
 
                             {/* ... existing jobs code ... */}
                             {jobsLoading && (
-                                <div className="flex items-center gap-2 text-gray-400 dark:text-gray-500 py-12 justify-center">
-                                    <Loader2 className="w-5 h-5 animate-spin" /> Loading jobs…
-                                </div>
+                                <ListItemSkeleton count={4} />
                             )}
 
                             {!jobsLoading && jobs.length === 0 && (
@@ -828,9 +827,7 @@ export default function CompanyDashboard() {
                             {defaultSelectedJobId && (
                                 <div className="mt-8 space-y-4">
                                     {applicantsLoading && (
-                                        <div className="flex items-center gap-2 text-gray-400 py-8 justify-center">
-                                            <Loader2 className="w-5 h-5 animate-spin" /> Loading applicants…
-                                        </div>
+                                        <ListItemSkeleton count={3} />
                                     )}
                                     {!applicantsLoading && applicants.length === 0 && (
                                         <div className="flex flex-col items-center py-10 gap-2 text-gray-400">
