@@ -5,6 +5,11 @@ services:
     restart: unless-stopped
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   backend:
     build: ./backend
@@ -15,9 +20,11 @@ services:
       - .env.prod
     environment:
       PYTHONUNBUFFERED: 1
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
 
   celery:
     image: smart-recruitment-backend:latest
@@ -28,9 +35,11 @@ services:
       - .env.prod
     environment:
       PYTHONUNBUFFERED: 1
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
 
   celery_email:
     image: smart-recruitment-backend:latest
@@ -41,9 +50,11 @@ services:
       - .env.prod
     environment:
       PYTHONUNBUFFERED: 1
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
 
   celery_questions:
     image: smart-recruitment-backend:latest
@@ -54,9 +65,11 @@ services:
       - .env.prod
     environment:
       PYTHONUNBUFFERED: 1
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
 
   nginx:
     image: nginx:alpine
