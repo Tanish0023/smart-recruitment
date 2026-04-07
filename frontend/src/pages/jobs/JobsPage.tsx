@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@apollo/client/react";
 import { Search, MapPin, Briefcase, SlidersHorizontal, Rocket, ArrowRight, Loader2 } from "lucide-react";
 import { JobCard } from "@/components/JobCard";
+import { JobGridSkeleton } from "@/components/AppSkeletons";
 import { GET_ALL_JOBS, GET_MY_APPLICATIONS } from "@/graphql/jobs";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -227,10 +228,7 @@ export default function JobsPage() {
                 </div>
 
                 {loading && (
-                    <div className="flex items-center justify-center py-24 gap-3 text-gray-400 dark:text-slate-400">
-                        <Loader2 className="w-6 h-6 animate-spin" />
-                        <span>Loading jobs…</span>
-                    </div>
+                    <JobGridSkeleton count={6} />
                 )}
 
                 {error && (
@@ -268,6 +266,7 @@ export default function JobsPage() {
 
                 {!search && !locationFilter && hasMore && (
                     <div ref={loadMoreRef} className="h-10 mt-6 flex items-center justify-center text-sm text-gray-400 dark:text-slate-500">
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
                         Loading more jobs...
                     </div>
                 )}

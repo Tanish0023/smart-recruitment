@@ -8,6 +8,7 @@ import {
 import { GET_JOB_DETAIL, APPLY_TO_JOB, GET_MY_APPLICATIONS } from "@/graphql/jobs";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { JobDetailSkeleton } from "@/components/AppSkeletons";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface JobDetail {
@@ -98,10 +99,7 @@ export default function JobDetailPage() {
 
             <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
                 {loading && (
-                    <div className="flex items-center justify-center py-24 gap-3 text-gray-400 dark:text-slate-400">
-                        <Loader2 className="w-6 h-6 animate-spin" />
-                        <span>Loading job…</span>
-                    </div>
+                    <JobDetailSkeleton />
                 )}
 
                 {error && (
