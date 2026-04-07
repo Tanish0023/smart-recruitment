@@ -28,11 +28,11 @@ const HowItWorks = () => {
   const containerRef = useRef(null);
   const { scrollYProgress } = useScroll({
     target: containerRef,
-    offset: ["start center", "end center"]
+    offset: ["start", "end"]
   });
 
   const lineHeight = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
-  
+
   // Custom spring for smoother line fill
   const springLineHeight = useSpring(lineHeight, { stiffness: 100, damping: 20 });
 
@@ -58,7 +58,7 @@ const HowItWorks = () => {
               <div className="relative pl-4">
                 {/* Scroll-filling progress line */}
                 <div className="absolute left-9 top-4 bottom-4 w-1 bg-gray-100 dark:bg-slate-800 rounded-full"></div>
-                <motion.div 
+                <motion.div
                   className="absolute left-9 top-4 w-1 bg-emerald-500 dark:bg-emerald-400 rounded-full origin-top"
                   style={{ height: springLineHeight }}
                 ></motion.div>
@@ -74,7 +74,7 @@ const HowItWorks = () => {
                       className="flex gap-8 relative z-10"
                     >
                       <div className="shrink-0">
-                        <motion.div 
+                        <motion.div
                           whileHover={{ scale: 1.1 }}
                           className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-700 dark:text-emerald-300 font-bold border-4 border-white dark:border-slate-950 shadow-md transition-shadow"
                         >
@@ -109,7 +109,7 @@ const HowItWorks = () => {
               </div>
 
               {/* Animated scanning bar */}
-              <motion.div 
+              <motion.div
                 animate={{ top: ["0%", "100%", "0%"] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
                 className="absolute left-0 right-0 h-32 bg-gradient-to-b from-transparent via-emerald-500/10 to-transparent pointer-events-none z-20"
@@ -126,8 +126,8 @@ const HowItWorks = () => {
                   { score: 85, name: "Sarah K." },
                   { score: 78, name: "David O." }
                 ].map((candidate, i) => (
-                  <motion.div 
-                    key={i} 
+                  <motion.div
+                    key={i}
                     initial={{ x: 50, opacity: 0 }}
                     whileInView={{ x: 0, opacity: 1 }}
                     transition={{ delay: 0.5 + i * 0.15 }}
@@ -136,7 +136,7 @@ const HowItWorks = () => {
                   >
                     {/* Hover highlight */}
                     <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    
+
                     <div className="flex items-center gap-4 relative z-10">
                       <div className="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-bold border border-slate-600">
                         {candidate.name.charAt(0)}
@@ -149,11 +149,11 @@ const HowItWorks = () => {
                     <div className="flex flex-col items-end relative z-10">
                       <span className="text-sm font-bold text-emerald-400">{candidate.score}% Match</span>
                       <div className="w-24 h-2 bg-slate-700/50 rounded-full mt-2 overflow-hidden shadow-inner">
-                        <motion.div 
+                        <motion.div
                           initial={{ width: 0 }}
                           whileInView={{ width: `${candidate.score}%` }}
                           transition={{ duration: 1.5, delay: 1 + i * 0.2, ease: "easeOut" }}
-                          className="h-full bg-emerald-500 rounded-full" 
+                          className="h-full bg-emerald-500 rounded-full"
                         ></motion.div>
                       </div>
                     </div>
@@ -161,7 +161,7 @@ const HowItWorks = () => {
                 ))}
               </div>
             </motion.div>
-            
+
             {/* Background glowing blurred blob */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-emerald-500/20 rounded-full blur-[100px] -z-10"></div>
           </div>

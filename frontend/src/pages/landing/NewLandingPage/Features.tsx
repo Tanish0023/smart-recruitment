@@ -2,6 +2,14 @@ import React from 'react';
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import { FileSearch, Sparkles, TrendingUp, Presentation } from 'lucide-react';
 
+type Feature = {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  color: string;
+  shadowColor: string;
+};
+
 const features = [
   {
     icon: <FileSearch size={32} className="text-white" />,
@@ -33,7 +41,7 @@ const features = [
   }
 ];
 
-const TiltCard = ({ feature }: { feature: any }) => {
+const TiltCard = ({ feature }: { feature: Feature }) => {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
 

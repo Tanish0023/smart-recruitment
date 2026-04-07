@@ -1,25 +1,34 @@
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { ArrowRight, Sparkles, BrainCircuit } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useRef } from 'react';
+import { useRef, type ReactNode, type MouseEvent } from 'react';
 
-const MagneticButton = ({ children, className }: { children: React.ReactNode, className?: string }) => {
+const floatingNodes = [
+  { top: '24%', left: '18%', initialX: 8, initialY: 18, x: [8, -14, 10], y: [18, -22, 16], duration: 16 },
+  { top: '32%', left: '74%', initialX: -12, initialY: 10, x: [-12, 16, -8], y: [10, -18, 12], duration: 19 },
+  { top: '48%', left: '28%', initialX: 14, initialY: -8, x: [14, -10, 12], y: [-8, 20, -6], duration: 17 },
+  { top: '58%', left: '62%', initialX: -10, initialY: 14, x: [-10, 12, -14], y: [14, -16, 18], duration: 21 },
+  { top: '66%', left: '40%', initialX: 6, initialY: -12, x: [6, -8, 10], y: [-12, 14, -10], duration: 18 },
+  { top: '76%', left: '82%', initialX: -16, initialY: 6, x: [-16, 12, -14], y: [6, -20, 8], duration: 20 },
+];
+
+const MagneticButton = ({ children, className }: { children: ReactNode; className?: string }) => {
   const ref = useRef<HTMLDivElement>(null);
-  
-  const handleMouse = (e: React.MouseEvent) => {
+
+  const handleMouse = (e: MouseEvent<HTMLDivElement>) => {
     if (!ref.current) return;
     const { clientX, clientY } = e;
     const { height, width, left, top } = ref.current.getBoundingClientRect();
     const x = clientX - (left + width / 2);
     const y = clientY - (top + height / 2);
-    
+
     ref.current.style.transform = `translate(${x * 0.2}px, ${y * 0.2}px)`;
-  }
-  
+  };
+
   const handleMouseLeave = () => {
     if (!ref.current) return;
-    ref.current.style.transform = `translate(0px, 0px)`;
-  }
+    ref.current.style.transform = 'translate(0px, 0px)';
+  };
 
   return (
     <motion.div
@@ -31,18 +40,18 @@ const MagneticButton = ({ children, className }: { children: React.ReactNode, cl
     >
       {children}
     </motion.div>
-  )
-}
+  );
+};
 
 const Hero = () => {
   const containerRef = useRef(null);
   const { scrollYProgress } = useScroll({
     target: containerRef,
-    offset: ["start start", "end start"]
+    offset: ['start start', 'end start'],
   });
 
-  const yBackground = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
-  
+  const yBackground = useTransform(scrollYProgress, [0, 1], ['0%', '50%']);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -50,13 +59,13 @@ const Hero = () => {
       transition: {
         staggerChildren: 0.15,
         delayChildren: 0.2,
-      }
-    }
+      },
+    },
   };
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 100 } }
+    visible: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 100 } },
   };
 
   return (
@@ -64,51 +73,48 @@ const Hero = () => {
       {/* Background Floating Elements */}
       <motion.div style={{ y: yBackground }} className="absolute inset-0 -z-10 pointer-events-none">
         {/* Animated glowing orbs */}
-        <motion.div 
-          animate={{ 
+        <motion.div
+          animate={{
             scale: [1, 1.2, 1],
             opacity: [0.3, 0.5, 0.3],
           }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
           className="absolute -top-40 -right-40 w-[30rem] h-[30rem] rounded-full bg-indigo-500/20 blur-[100px]"
         />
-        <motion.div 
-          animate={{ 
+        <motion.div
+          animate={{
             scale: [1, 1.5, 1],
             opacity: [0.2, 0.4, 0.2],
           }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+          transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
           className="absolute top-40 -left-20 w-[24rem] h-[24rem] rounded-full bg-purple-500/20 blur-[100px]"
         />
-        
+
         {/* Floating AI Data Nodes */}
-        {[...Array(6)].map((_, i) => (
+        {floatingNodes.map((node, index) => (
           <motion.div
-            key={i}
-            initial={{ y: Math.random() * 100, x: Math.random() * 100, opacity: 0 }}
-            animate={{ 
-              y: [Math.random() * 100, Math.random() * -100, Math.random() * 100],
-              x: [Math.random() * 100, Math.random() * -100, Math.random() * 100],
-              opacity: [0.2, 0.6, 0.2]
+            key={index}
+            initial={{ y: node.initialY, x: node.initialX, opacity: 0 }}
+            animate={{
+              y: node.y,
+              x: node.x,
+              opacity: [0.2, 0.6, 0.2],
             }}
             transition={{
-              duration: 15 + Math.random() * 10,
+              duration: node.duration,
               repeat: Infinity,
-              ease: "linear"
+              ease: 'linear',
             }}
             className="absolute hidden md:flex items-center justify-center w-12 h-12 rounded-2xl bg-white/5 dark:bg-slate-800/30 backdrop-blur-md border border-white/10 dark:border-slate-700/50 shadow-xl"
-            style={{ 
-              top: `${20 + Math.random() * 60}%`, 
-              left: `${10 + Math.random() * 80}%` 
-            }}
+            style={{ top: node.top, left: node.left }}
           >
-             <BrainCircuit size={20} className="text-indigo-600/50 dark:text-indigo-400/50" />
+            <BrainCircuit size={20} className="text-indigo-600/50 dark:text-indigo-400/50" />
           </motion.div>
         ))}
       </motion.div>
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <motion.div 
+        <motion.div
           className="max-w-4xl mx-auto text-center"
           variants={containerVariants}
           initial="hidden"
@@ -152,7 +158,7 @@ const Hero = () => {
                 </span>
               </Link>
             </MagneticButton>
-            
+
             <MagneticButton>
               <Link
                 to="/jobs"
