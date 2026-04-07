@@ -5,8 +5,8 @@ import { gql } from "@apollo/client";
 // ─────────────────────────────────────────
 
 export const GET_ALL_JOBS = gql`
-  query GetAllJobs {
-    allJobs {
+  query GetAllJobs($limit: Int, $offset: Int) {
+    allJobs(limit: $limit, offset: $offset) {
       id
       title
       description

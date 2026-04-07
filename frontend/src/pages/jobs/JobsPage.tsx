@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@apollo/client/react";
 import { Search, MapPin, Briefcase, SlidersHorizontal, Rocket, ArrowRight, Loader2 } from "lucide-react";
@@ -23,15 +23,23 @@ interface Application {
     job: { id: string };
 }
 
+const PAGE_SIZE = 12;
+
 export default function JobsPage() {
     const { isAuthenticated, user } = useAuth();
     const navigate = useNavigate();
     const [search, setSearch] = useState("");
     const [locationFilter, setLocationFilter] = useState("");
+    const [hasMore, setHasMore] = useState(true);
+    const loadMoreRef = useRef<HTMLDivElement | null>(null);
+    const isFetchingMoreRef = useRef(false);
 
     const isApplicant = isAuthenticated && !user?.isRecruiter;
 
-    const { data, loading, error } = useQuery<{ allJobs: Job[] }>(GET_ALL_JOBS);
+    const { data, loading, error, fetchMore } = useQuery<{ allJobs: Job[] }>(GET_ALL_JOBS, {
+        variables: { limit: PAGE_SIZE, offset: 0 },
+        notifyOnNetworkStatusChange: true,
+    });
     const { data: appsData } = useQuery<{ myApplications: Application[] }>(GET_MY_APPLICATIONS, {
         skip: !isApplicant,
     });
@@ -60,6 +68,59 @@ export default function JobsPage() {
     const uniqueLocations = Array.from(
         new Set(jobs.map((j) => j.location).filter(Boolean))
     ) as string[];
+
+    useEffect(() => {
+        const target = loadMoreRef.current;
+        if (!target || !hasMore || search || locationFilter) {
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            async (entries) => {
+                const first = entries[0];
+                if (!first?.isIntersecting || isFetchingMoreRef.current) {
+                    return;
+                }
+
+                isFetchingMoreRef.current = true;
+                const result = await fetchMore({
+                    variables: {
+                        limit: PAGE_SIZE,
+                        offset: jobs.length,
+                    },
+                    updateQuery: (prev, { fetchMoreResult }) => {
+                        const next = fetchMoreResult?.allJobs ?? [];
+                        if (next.length < PAGE_SIZE) {
+                            setHasMore(false);
+                        }
+                        if (!next.length) {
+                            return prev;
+                        }
+
+                        const existingIds = new Set(prev.allJobs.map((job) => job.id));
+                        const uniqueNext = next.filter((job) => !existingIds.has(job.id));
+
+                        if (!uniqueNext.length) {
+                            return prev;
+                        }
+
+                        return {
+                            allJobs: [...prev.allJobs, ...uniqueNext],
+                        };
+                    },
+                });
+
+                if ((result.data?.allJobs?.length ?? 0) === 0) {
+                    setHasMore(false);
+                }
+                isFetchingMoreRef.current = false;
+            },
+            { rootMargin: "200px" }
+        );
+
+        observer.observe(target);
+        return () => observer.disconnect();
+    }, [fetchMore, hasMore, jobs.length, locationFilter, search]);
 
     function handleDashboard() {
         if (!isAuthenticated) { navigate("/applicant/login"); return; }
@@ -204,6 +265,12 @@ export default function JobsPage() {
                         />
                     ))}
                 </div>
+
+                {!search && !locationFilter && hasMore && (
+                    <div ref={loadMoreRef} className="h-10 mt-6 flex items-center justify-center text-sm text-gray-400 dark:text-slate-500">
+                        Loading more jobs...
+                    </div>
+                )}
             </section>
         </div>
     );
