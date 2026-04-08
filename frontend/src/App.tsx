@@ -57,7 +57,6 @@ function ThemedToastContainer() {
       pauseOnHover
       theme={isDark ? "dark" : "light"}
       toastClassName="app-toast"
-      bodyClassName="app-toast-body"
       progressClassName="app-toast-progress"
       closeButton={false}
     />
