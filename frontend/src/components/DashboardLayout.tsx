@@ -86,7 +86,7 @@ export function DashboardLayout({ navItems, children, title, hideHeader, sidebar
                     <motion.aside
                         key="sidebar"
                         initial={{ width: 0, opacity: 0 }}
-                        animate={{ width: 256, opacity: 1 }}
+                        animate={{ width: 265, opacity: 1 }}
                         exit={{ width: 0, opacity: 0 }}
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden shrink-0 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 flex flex-col z-30 h-screen sticky top-0"
@@ -177,17 +177,12 @@ export function DashboardLayout({ navItems, children, title, hideHeader, sidebar
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Floating Expand Button (when header is hidden & sidebar closed) */}
                 {hideHeader && !sidebarOpen && (
-                    <>
-                        <button
-                            onClick={() => setSidebarOpen(true)}
-                            className="fixed top-4 left-4 z-40 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-slate-300 hover:text-indigo-600 p-2 rounded-xl shadow-lg hover:shadow-indigo-100 transition-all active:scale-95"
-                        >
-                            <Menu size={20} />
-                        </button>
-                        <div className="fixed top-4 right-4 z-40 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 p-1 rounded-xl shadow-lg">
-                            <ThemeToggle />
-                        </div>
-                    </>
+                    <button
+                        onClick={() => setSidebarOpen(true)}
+                        className="fixed top-4 left-4 z-40 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-slate-300 hover:text-indigo-600 p-2 rounded-xl shadow-lg hover:shadow-indigo-100 transition-all active:scale-95"
+                    >
+                        <Menu size={20} />
+                    </button>
                 )}
 
                 {/* Top bar */}

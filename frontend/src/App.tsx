@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { TitleUpdater } from "@/components/TitleUpdater";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ReactNode } from "react";
+import { ToastContainer } from "react-toastify";
 
 import ApplicantLogin from "@/pages/applicant/ApplicantLogin";
 import ApplicantRegister from "@/pages/applicant/ApplicantRegister";
@@ -38,6 +40,28 @@ function RedirectIfAuthenticated({ children }: { children: ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+function ThemedToastContainer() {
+  const { isDark } = useTheme();
+
+  return (
+    <ToastContainer
+      position="top-right"
+      autoClose={4000}
+      hideProgressBar={false}
+      newestOnTop
+      closeOnClick
+      pauseOnFocusLoss
+      draggable
+      pauseOnHover
+      theme={isDark ? "dark" : "light"}
+      toastClassName="app-toast"
+      bodyClassName="app-toast-body"
+      progressClassName="app-toast-progress"
+      closeButton={false}
+    />
+  );
 }
 
 function App() {
@@ -95,8 +119,7 @@ function App() {
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-          <div className="fixed right-4 bottom-4 z-60 rounded-xl border border-gray-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 p-1 shadow-lg backdrop-blur-sm">
-          </div>
+          <ThemedToastContainer />
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>
