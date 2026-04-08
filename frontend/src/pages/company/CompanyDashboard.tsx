@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useApolloClient } from "@apollo/client/react";
+import { useQuery, useMutation } from "@apollo/client/react";
+import { toast } from "react-toastify";
 import {
     Briefcase, Plus, Pencil, Trash2, Users, ToggleLeft, ToggleRight,
-    Loader2, CheckCircle2, CircleOff,
+    Loader2, CircleOff,
     MapPin, DollarSign, Search,
     X, Sparkles,
 } from "lucide-react";
@@ -32,6 +33,8 @@ interface Job {
     minimumExperienceRequired: number;
     skills: Skill[];
     categories: Category[];
+    questionCount?: number;
+    applicationCount?: number;
     isActive: boolean; createdAt: string;
 }
 interface Skill {
@@ -102,12 +105,6 @@ interface DeleteJobQuestionData {
     deleteJobQuestion: {
         success: boolean;
     };
-}
-
-interface BannerToast {
-    message: string;
-    actionLabel?: string;
-    onAction?: () => void;
 }
 
 type Tab = "jobs" | "post" | "applicants";
@@ -213,9 +210,9 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                     .sort((a, b) => a.name.localeCompare(b.name));
 
                 return (
-                <Form className="space-y-4 max-h-[80vh] overflow-scroll px-1">
+                <Form className="space-y-4 max-h-[80vh] overflow-scroll px-1 text-gray-900 dark:text-slate-100">
                     <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1">
+                        <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-1">
                             Job Title <span className="text-red-500">*</span>
                         </label>
                         <Field as={Input} name="title" placeholder="e.g. Senior Frontend Engineer" />
@@ -224,19 +221,19 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-sm font-medium text-gray-700 block mb-1">Location</label>
+                            <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-1">Location</label>
                             <Field as={Input} name="location" placeholder="e.g. Bangalore / Remote" />
                             <ErrorMessage name="location" component="p" className="text-xs text-red-500 mt-1" />
                         </div>
                         <div>
-                            <label className="text-sm font-medium text-gray-700 block mb-1">Salary Range</label>
+                            <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-1">Salary Range</label>
                             <Field as={Input} name="salaryRange" placeholder="e.g. ₹8L – ₹14L" />
                             <ErrorMessage name="salaryRange" component="p" className="text-xs text-red-500 mt-1" />
                         </div>
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1">
+                        <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-1">
                             Minimum Experience Required (years)
                         </label>
                         <Field as={Input} type="number" min="0" name="minimumExperienceRequired" />
@@ -244,7 +241,7 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1">
+                        <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-1">
                             Job Categories
                         </label>
                         <div className="relative mb-2">
@@ -257,9 +254,9 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                             />
                         </div>
 
-                        <div className="max-h-40 overflow-y-auto rounded-xl border border-gray-200 bg-white p-2">
+                        <div className="max-h-40 overflow-y-auto rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2">
                             {filteredCategories.length === 0 && (
-                                <p className="text-xs text-gray-500 px-2 py-1">No categories found.</p>
+                                <p className="text-xs text-gray-500 dark:text-slate-400 px-2 py-1">No categories found.</p>
                             )}
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
@@ -268,7 +265,7 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                                     return (
                                         <label
                                             key={category.id}
-                                            className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50 cursor-pointer"
+                                            className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-slate-800 cursor-pointer"
                                         >
                                             <input
                                                 type="checkbox"
@@ -281,18 +278,18 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                                                 }}
                                                 className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                             />
-                                            <span className="text-sm text-gray-700">{category.name}</span>
+                                            <span className="text-sm text-gray-700 dark:text-slate-200">{category.name}</span>
                                         </label>
                                     );
                                 })}
                             </div>
                         </div>
 
-                        <p className="text-xs text-gray-500 mt-1">Selected: {values.categoryIds.length}</p>
+                        <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">Selected: {values.categoryIds.length}</p>
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1">
+                        <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-1">
                             Skills for Resume Shortlisting
                         </label>
                         <div className="relative mb-2">
@@ -305,9 +302,9 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                             />
                         </div>
 
-                        <div className="max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 space-y-2">
+                        <div className="max-h-56 overflow-y-auto rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 space-y-2">
                             {filteredSkills.length === 0 && (
-                                <p className="text-xs text-gray-500 px-2 py-1">No skills found.</p>
+                                <p className="text-xs text-gray-500 dark:text-slate-400 px-2 py-1">No skills found.</p>
                             )}
 
                             {selectedSkills.length > 0 && (
@@ -319,7 +316,7 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                                             return (
                                                 <label
                                                     key={skill.id}
-                                                    className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-indigo-50 cursor-pointer"
+                                                    className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer"
                                                 >
                                                     <input
                                                         type="checkbox"
@@ -332,7 +329,7 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                                                         }}
                                                         className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                                     />
-                                                    <span className="text-sm text-gray-700">{skill.name}</span>
+                                                    <span className="text-sm text-gray-700 dark:text-slate-200">{skill.name}</span>
                                                 </label>
                                             );
                                         })}
@@ -341,15 +338,15 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                             )}
 
                             {remainingSkills.length > 0 && (
-                                <div className="rounded-lg border border-gray-100 p-2">
-                                    <p className="text-xs font-semibold text-gray-500 mb-1">All Skills</p>
+                                <div className="rounded-lg border border-gray-100 dark:border-slate-700 p-2">
+                                    <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 mb-1">All Skills</p>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                                         {remainingSkills.map((skill) => {
                                             const checked = values.skillIds.includes(skill.id);
                                             return (
                                                 <label
                                                     key={skill.id}
-                                                    className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50 cursor-pointer"
+                                                    className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-slate-800 cursor-pointer"
                                                 >
                                                     <input
                                                         type="checkbox"
@@ -362,7 +359,7 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                                                         }}
                                                         className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                                     />
-                                                    <span className="text-sm text-gray-700">{skill.name}</span>
+                                                    <span className="text-sm text-gray-700 dark:text-slate-200">{skill.name}</span>
                                                 </label>
                                             );
                                         })}
@@ -371,12 +368,12 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                             )}
                         </div>
 
-                        <p className="text-xs text-gray-500 mt-1">Selected: {values.skillIds.length}</p>
-                        <p className="text-xs text-gray-500 mt-1">These skills are used internally for ranking resumes and are not shown to candidates.</p>
+                        <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">Selected: {values.skillIds.length}</p>
+                        <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">These skills are used internally for ranking resumes and are not shown to candidates.</p>
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium text-gray-700 block mb-1">
+                        <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-1">
                             Description <span className="text-red-500">*</span>
                         </label>
                         <Field
@@ -384,7 +381,7 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                             name="description"
                             rows={6}
                             placeholder="Describe the role, responsibilities, and requirements..."
-                            className="w-full text-sm rounded-xl border border-gray-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                            className="w-full text-sm rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
                         />
                         <ErrorMessage name="description" component="p" className="text-xs text-red-500 mt-1" />
                     </div>
@@ -427,15 +424,11 @@ export default function CompanyDashboard() {
         return window.localStorage.getItem(DASHBOARD_SELECTED_JOB_STORAGE_KEY);
     });
     const [applicantsSortMode, setApplicantsSortMode] = useState<ApplicantsSortMode>("RANKING");
-    const [successMsg, setSuccessMsg] = useState<BannerToast | null>(null);
     const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({});
     const [awaitingGeneratedQuestions, setAwaitingGeneratedQuestions] = useState(false);
     const [baselineQuestionCount, setBaselineQuestionCount] = useState<number | null>(null);
-    const [pendingQuestionsJob, setPendingQuestionsJob] = useState<Job | null>(null);
-    const [initialQuestionCounts, setInitialQuestionCounts] = useState<Record<string, number>>({});
     const questionPollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const questionPollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         window.localStorage.setItem(DASHBOARD_TAB_STORAGE_KEY, activeTab);
@@ -452,8 +445,6 @@ export default function CompanyDashboard() {
         useQuery<{ companyJobs: Job[] }>(GET_COMPANY_JOBS);
     const { data: skillsData } = useQuery<{ allSkills: Skill[] }>(GET_ALL_SKILLS);
     const { data: categoriesData } = useQuery<{ allCategories: Category[] }>(GET_ALL_CATEGORIES);
-    const client = useApolloClient();
-    const activeQuestionsJobId = questionsJob?.id ?? pendingQuestionsJob?.id ?? null;
     const defaultSelectedJobId = selectedJobId ?? jobsData?.companyJobs?.[0]?.id ?? null;
     const { data: applicantsData, loading: applicantsLoading } =
         useQuery<{ jobApplicants: Applicant[] }>(GET_JOB_APPLICANTS, {
@@ -468,26 +459,69 @@ export default function CompanyDashboard() {
         loading: questionsLoading,
         refetch: refetchQuestions,
     } = useQuery<{ jobQuestions: JobQuestion[] }>(GET_JOB_QUESTIONS, {
-        variables: { jobId: Number(activeQuestionsJobId) },
-        skip: !activeQuestionsJobId,
+        variables: { jobId: Number(questionsJob?.id) },
+        skip: !questionsJob?.id,
         fetchPolicy: "network-only",
     });
 
     /* ── Mutations ── */
     const flash = useCallback((message: string, actionLabel?: string, onAction?: () => void) => {
-        setSuccessMsg({ message, actionLabel, onAction });
-        if (toastTimeoutRef.current) {
-            clearTimeout(toastTimeoutRef.current);
+        if (actionLabel && onAction) {
+            toast.success(
+                <div className="flex items-center gap-2">
+                    <span>{message}</span>
+                    <button
+                        type="button"
+                        className="underline underline-offset-2 font-semibold"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onAction();
+                            toast.dismiss();
+                        }}
+                    >
+                        {actionLabel}
+                    </button>
+                </div>,
+                {
+                    autoClose: 6000,
+                    closeOnClick: false,
+                }
+            );
+            return;
         }
-        toastTimeoutRef.current = setTimeout(() => setSuccessMsg(null), 6000);
+
+        toast.success(message, { autoClose: 6000 });
+    }, []);
+
+    const flashError = useCallback((message: string) => {
+        toast.error(message, { autoClose: 6000 });
     }, []);
 
     const [createJob, { loading: creating }] = useMutation<CreateJobData>(CREATE_JOB, {
         onCompleted() { refetchJobs(); flash("Job posted successfully!"); setActiveTab("jobs"); },
-        onError(error) { flash("Error: " + error.message); },
+        onError(error) { flashError("Error: " + error.message); },
     });
     const [updateJob, { loading: updating }] = useMutation<UpdateJobData>(UPDATE_JOB, {
-        onCompleted() { refetchJobs(); setEditJob(null); flash("Job updated!"); },
+        update(cache, { data }) {
+            const updatedJob = data?.updateJob?.job;
+            if (!updatedJob) {
+                return;
+            }
+
+            const existing = cache.readQuery<{ companyJobs: Job[] }>({ query: GET_COMPANY_JOBS });
+            if (!existing?.companyJobs) {
+                return;
+            }
+
+            cache.writeQuery({
+                query: GET_COMPANY_JOBS,
+                data: {
+                    companyJobs: existing.companyJobs.map((job) =>
+                        job.id === updatedJob.id ? { ...job, ...updatedJob } : job
+                    ),
+                },
+            });
+        },
     });
     const [deleteJobMut, { loading: deleting }] = useMutation<DeleteJobData>(DELETE_JOB, {
         onCompleted() { refetchJobs(); setDeleteJobState(null); flash("Job deleted."); },
@@ -502,7 +536,7 @@ export default function CompanyDashboard() {
                 flash(message);
             },
             onError(error) {
-                flash("Error: " + error.message);
+                flashError("Error: " + error.message);
             },
         });
     const [deleteQuestion, { loading: deletingQuestion }] =
@@ -512,9 +546,47 @@ export default function CompanyDashboard() {
                 refetchQuestions();
             },
             onError(error) {
-                flash("Error: " + error.message);
+                flashError("Error: " + error.message);
             },
         });
+
+    const handleToggleJobStatus = useCallback(async (job: Job) => {
+        const nextStatus = !job.isActive;
+
+        try {
+            await updateJob({
+                variables: {
+                    jobId: Number(job.id),
+                    isActive: nextStatus,
+                },
+            });
+            flash(`Job ${nextStatus ? "activated" : "deactivated"}.`);
+        } catch (error) {
+            flashError(error instanceof Error ? error.message : "Unable to update job status.");
+        }
+    }, [flash, flashError, updateJob]);
+
+    const handleSaveJob = useCallback(async (jobId: string, values: JobFormValues) => {
+        try {
+            await updateJob({
+                variables: {
+                    jobId: Number(jobId),
+                    title: values.title,
+                    description: values.description,
+                    location: values.location || null,
+                    salaryRange: values.salaryRange || null,
+                    minimumExperienceRequired: Number(values.minimumExperienceRequired || 0),
+                    categories: (values.categoryIds ?? []).map((categoryId) => Number(categoryId)),
+                    skills: (values.skillIds ?? []).map((skillId) => Number(skillId)),
+                },
+            });
+
+            setEditJob(null);
+            flash("Job updated!");
+        } catch (error) {
+            flashError(error instanceof Error ? error.message : "Unable to update job.");
+        }
+    }, [flash, flashError, updateJob]);
 
     const jobs = useMemo(() => jobsData?.companyJobs ?? [], [jobsData?.companyJobs]);
     const allSkills = skillsData?.allSkills ?? [];
@@ -540,47 +612,16 @@ export default function CompanyDashboard() {
     }, []);
 
     const closeQuestionsDialog = useCallback(() => {
-        if (!awaitingGeneratedQuestions) {
-            clearQuestionsPolling();
-            setPendingQuestionsJob(null);
-        }
+        clearQuestionsPolling();
+        setAwaitingGeneratedQuestions(false);
+        setBaselineQuestionCount(null);
         setQuestionsJob(null);
-    }, [clearQuestionsPolling, awaitingGeneratedQuestions]);
-
-
-
+    }, [clearQuestionsPolling]);
     useEffect(() => {
         return () => {
             clearQuestionsPolling();
-            if (toastTimeoutRef.current) {
-                clearTimeout(toastTimeoutRef.current);
-            }
         };
     }, [clearQuestionsPolling]);
-
-    // Fetch initial question counts for all jobs on page load
-    useEffect(() => {
-        if (!jobs.length) return;
-
-        const fetchCounts = async () => {
-            const counts: Record<string, number> = {};
-            for (const job of jobs) {
-                try {
-                    const { data } = await client.query<{ jobQuestions: JobQuestion[] }>({
-                        query: GET_JOB_QUESTIONS,
-                        variables: { jobId: Number(job.id) },
-                        fetchPolicy: "network-only",
-                    });
-                    counts[job.id] = data?.jobQuestions?.length ?? 0;
-                } catch {
-                    counts[job.id] = 0;
-                }
-            }
-            setInitialQuestionCounts(counts);
-        };
-
-        fetchCounts();
-    }, [jobs, client]);
 
     return (
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Tab)} className="w-full">
@@ -612,26 +653,6 @@ export default function CompanyDashboard() {
                     </TabsList>
                 }
             >
-                {/* Success toast */}
-                {successMsg && (
-                    <div className="mx-6 mt-4 flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-medium px-4 py-2.5 rounded-xl">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>{successMsg.message}</span>
-                        {successMsg.actionLabel && successMsg.onAction && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    successMsg.onAction?.();
-                                    setSuccessMsg(null);
-                                }}
-                                className="ml-2 underline underline-offset-2 font-semibold text-emerald-800 hover:text-emerald-900"
-                            >
-                                {successMsg.actionLabel}
-                            </button>
-                        )}
-                    </div>
-                )}
-
                 <div className="p-6 max-w-6xl mx-auto">
                     <TabsContent value="jobs" className="mt-0">
                         <div className="space-y-4">
@@ -646,7 +667,7 @@ export default function CompanyDashboard() {
                             </div>
 
                             {/* ... existing jobs code ... */}
-                            {jobsLoading && (
+                            {jobsLoading && jobs.length === 0 && (
                                 <ListItemSkeleton count={4} />
                             )}
 
@@ -702,7 +723,7 @@ export default function CompanyDashboard() {
                                         <div className="flex items-center gap-2 shrink-0">
                                             <button
                                                 title={job.isActive ? "Deactivate" : "Activate"}
-                                                onClick={() => updateJob({ variables: { jobId: Number(job.id), isActive: !job.isActive } })}
+                                                onClick={() => handleToggleJobStatus(job)}
                                                 className="p-2 rounded-xl text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
                                             >
                                                 {job.isActive
@@ -710,11 +731,14 @@ export default function CompanyDashboard() {
                                                     : <ToggleLeft className="w-5 h-5 text-gray-400" />}
                                             </button>
                                             <button
-                                                title="View applicants"
+                                                title={`View applicants (${job.applicationCount ?? 0})`}
                                                 onClick={() => { setSelectedJobId(job.id); setActiveTab("applicants"); }}
-                                                className="p-2 rounded-xl text-gray-500 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
+                                                className="inline-flex items-center gap-1.5 p-2 rounded-xl text-gray-500 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
                                             >
                                                 <Users className="w-5 h-5" />
+                                                <span className="text-xs font-semibold px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">
+                                                    {job.applicationCount ?? 0}
+                                                </span>
                                             </button>
                                             <button
                                                 title="Edit"
@@ -728,7 +752,7 @@ export default function CompanyDashboard() {
                                                 onClick={() => setQuestionsJob(job)}
                                                 className="p-2 rounded-xl text-gray-500 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
                                             >
-                                                <Sparkles className={`w-5 h-5 ${(initialQuestionCounts[job.id] ?? 0) > 0 ? "text-amber-500" : ""}`} />
+                                                <Sparkles className={`w-5 h-5 ${(job.questionCount ?? 0) > 0 ? "text-amber-500" : ""}`} />
                                             </button>
                                             <button
                                                 title="Delete"
@@ -746,8 +770,8 @@ export default function CompanyDashboard() {
 
                     <TabsContent value="post" className="mt-0">
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900 mb-6">Post a New Job</h1>
-                            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Post a New Job</h1>
+                            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm">
                                 <JobForm
                                     allCategories={allCategories}
                                     allSkills={allSkills}
@@ -920,17 +944,15 @@ export default function CompanyDashboard() {
                                     if (!questionsJob?.id) {
                                         return;
                                     }
-                                    const targetJob = questionsJob;
+                                    const targetJobId = Number(questionsJob.id);
                                     const currentCount = questions.length;
                                     setBaselineQuestionCount(currentCount);
                                     setAwaitingGeneratedQuestions(true);
-                                    setPendingQuestionsJob(targetJob);
-                                    setQuestionsJob(null);
                                     flash("We are generating your questions...");
 
                                     generateAiQuestions({
                                         variables: {
-                                            jobId: Number(targetJob.id),
+                                            jobId: targetJobId,
                                             count: Math.min(20, remainingQuestionSlots),
                                         },
                                     });
@@ -947,15 +969,7 @@ export default function CompanyDashboard() {
                                             clearQuestionsPolling();
                                             setAwaitingGeneratedQuestions(false);
                                             setBaselineQuestionCount(null);
-                                            setPendingQuestionsJob(null);
-                                            flash(
-                                                "Questions generated successfully.",
-                                                "Check them here",
-                                                () => {
-                                                    setQuestionsJob(targetJob);
-                                                    setPendingQuestionsJob(null);
-                                                }
-                                            );
+                                            flash("Questions generated successfully.");
                                         }
                                     }, 5000);
 
@@ -1055,20 +1069,7 @@ export default function CompanyDashboard() {
                                 }}
                                 loading={updating}
                                 submitLabel="Save Changes"
-                                onSubmit={(v) =>
-                                    updateJob({
-                                        variables: {
-                                            jobId: Number(editJob.id),
-                                            title: v.title,
-                                            description: v.description,
-                                            location: v.location || null,
-                                            salaryRange: v.salaryRange || null,
-                                            minimumExperienceRequired: Number(v.minimumExperienceRequired || 0),
-                                            categories: (v.categoryIds ?? []).map((categoryId) => Number(categoryId)),
-                                            skills: (v.skillIds ?? []).map((skillId) => Number(skillId)),
-                                        },
-                                    })
-                                }
+                                onSubmit={(v) => handleSaveJob(editJob.id, v)}
                             />
                         )}
                     </DialogContent>

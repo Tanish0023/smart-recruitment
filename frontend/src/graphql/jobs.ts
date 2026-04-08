@@ -69,6 +69,8 @@ export const GET_COMPANY_JOBS = gql`
       salaryRange
       minimumExperienceRequired
       isActive
+      questionCount
+      applicationCount
       createdAt
       updatedAt
       skills {

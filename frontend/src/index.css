@@ -47,3 +47,52 @@
     scroll-behavior: smooth;
   }
 }
+
+.Toastify__toast-container {
+  width: min(92vw, 380px);
+}
+
+.app-toast {
+  border-radius: 14px;
+  border: 1px solid #cbd5e1;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  color: #0f172a;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+  padding: 12px 14px;
+}
+
+.app-toast-body {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0;
+  padding: 0;
+}
+
+.app-toast-progress {
+  height: 3px;
+  background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%);
+}
+
+.Toastify__toast-theme--dark.app-toast {
+  border-color: #334155;
+  background: linear-gradient(135deg, #0f172a 0%, #111827 100%);
+  color: #e2e8f0;
+  box-shadow: 0 14px 30px rgba(2, 6, 23, 0.45);
+}
+
+.Toastify__toast--success.app-toast {
+  border-color: #86efac;
+}
+
+.Toastify__toast--error.app-toast {
+  border-color: #fca5a5;
+}
+
+.Toastify__toast-theme--dark.Toastify__toast--success.app-toast {
+  border-color: #166534;
+}
+
+.Toastify__toast-theme--dark.Toastify__toast--error.app-toast {
+  border-color: #7f1d1d;
+}

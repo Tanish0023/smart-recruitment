@@ -99,7 +99,7 @@ export default function CompanyLogin() {
                         variant="outline"
                         disabled={loading || googleLoading}
                         onClick={onGoogleSignIn}
-                        className="w-full border-gray-300 hover:bg-gray-50"
+                        className="w-full border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-700"
                     >
                         <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
                             <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.2-1.4 3.6-5.5 3.6-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.1.8 3.9 1.4l2.7-2.6C16.9 2.9 14.7 2 12 2 6.5 2 2 6.5 2 12s4.5 10 10 10c5.8 0 9.6-4 9.6-9.7 0-.7-.1-1.3-.2-1.9H12z" />

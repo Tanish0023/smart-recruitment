@@ -4,7 +4,7 @@ from graphql import GraphQLError
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
-from django.db.models import F
+from django.db.models import F, Count
 from celery import current_app
 
 from jobs.models import Job, JobApplication, Skill, Category, JobQuestions
@@ -55,6 +55,8 @@ class JobType(DjangoObjectType):
     skills = graphene.List(lambda: SkillType)
     categories = graphene.List(lambda: CategoryType)
     questions = graphene.List(lambda: JobQuestionType)
+    question_count = graphene.Int()
+    application_count = graphene.Int()
 
     class Meta:
         model = Job
@@ -86,6 +88,18 @@ class JobType(DjangoObjectType):
 
     def resolve_questions(self, info):
         return self.questions.all().order_by("id")
+
+    def resolve_question_count(self, info):
+        annotated_count = getattr(self, "question_count", None)
+        if annotated_count is not None:
+            return annotated_count
+        return self.questions.count()
+
+    def resolve_application_count(self, info):
+        annotated_count = getattr(self, "application_count", None)
+        if annotated_count is not None:
+            return annotated_count
+        return self.applications.count()
 
 class JobApplicationType(DjangoObjectType):
     resume_url = graphene.String()
@@ -165,7 +179,14 @@ class JobQuery(graphene.ObjectType):
     @recruiter_with_company_required
     def resolve_company_jobs(self, info):
         user = info.context.user
-        return Job.objects.filter(company=user.company)
+        return (
+            Job.objects.filter(company=user.company)
+            .annotate(
+                question_count=Count("questions", distinct=True),
+                application_count=Count("applications", distinct=True),
+            )
+            .order_by("-created_at")
+        )
 
     @recruiter_with_company_required
     def resolve_job_questions(self, info, job_id):
