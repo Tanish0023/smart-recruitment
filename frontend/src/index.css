@@ -61,7 +61,7 @@
   padding: 12px 14px;
 }
 
-.app-toast-body {
+.app-toast .Toastify__toast-body {
   font-size: 0.9rem;
   font-weight: 600;
   line-height: 1.4;
