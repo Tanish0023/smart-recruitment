@@ -206,6 +206,9 @@ export function DashboardLayout({ navItems, children, title, hideHeader, sidebar
 
                         {title && (
                             <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-slate-400">
+                                <span className="inline-flex items-center justify-center rounded-md bg-indigo-600 p-1 text-white">
+                                    <Rocket size={12} />
+                                </span>
                                 <ChevronRight size={14} />
                                 <span className="font-medium text-gray-700 dark:text-slate-200">{title}</span>
                             </div>
