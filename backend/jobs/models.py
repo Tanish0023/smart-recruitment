@@ -2,6 +2,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
+from uuid import uuid4
 from resumes.models import Resume
 
 User = get_user_model()
@@ -179,3 +180,33 @@ class JobQuestions(models.Model):
 
     def __str__(self):
         return f"Q{self.id} - {self.job.title}"
+
+
+class AiJobDraftRequest(models.Model):
+    STATUS_QUEUED = "queued"
+    STATUS_PROCESSING = "processing"
+    STATUS_COMPLETED = "completed"
+    STATUS_FAILED = "failed"
+
+    STATUS_CHOICES = [
+        (STATUS_QUEUED, "Queued"),
+        (STATUS_PROCESSING, "Processing"),
+        (STATUS_COMPLETED, "Completed"),
+        (STATUS_FAILED, "Failed"),
+    ]
+
+    request_id = models.UUIDField(default=uuid4, unique=True, editable=False, db_index=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ai_job_draft_requests")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_QUEUED)
+    message = models.CharField(max_length=255, blank=True, null=True)
+    generated_description = models.TextField(blank=True, null=True)
+    suggested_skill_ids = models.JSONField(default=list, blank=True)
+    suggested_skill_names = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"AI Draft {self.request_id} ({self.status})"

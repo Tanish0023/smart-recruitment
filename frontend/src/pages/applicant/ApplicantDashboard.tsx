@@ -158,26 +158,26 @@ function SearchableDropdown({
 
     return (
         <div className="relative" ref={dropdownRef}>
-            <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+            <label className="block text-xs font-medium text-gray-500 dark:text-slate-400 mb-1">{label}</label>
             <button
                 type="button"
                 onClick={() => { setOpen(!open); setSearch(""); }}
-                className="flex items-center w-full h-10 px-3 py-2 text-sm border border-gray-200 rounded-xl bg-white hover:border-indigo-300 transition-colors gap-2"
+                className="flex items-center w-full h-10 px-3 py-2 text-sm border border-gray-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 hover:border-indigo-300 dark:hover:border-indigo-500/70 transition-colors gap-2"
             >
                 {icon}
-                <span className={`flex-1 text-left truncate ${selectedLabel ? "text-gray-900" : "text-gray-400"}`}>
+                <span className={`flex-1 text-left truncate ${selectedLabel ? "text-gray-900 dark:text-slate-100" : "text-gray-400 dark:text-slate-400"}`}>
                     {selectedLabel || placeholder}
                 </span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                <ChevronDown className={`w-4 h-4 text-gray-400 dark:text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
             </button>
 
             {open && (
-                <div className="absolute z-50 mt-1 w-full min-w-60 bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
-                    <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100">
-                        <Search className="w-4 h-4 text-gray-400" />
+                <div className="absolute z-50 mt-1 w-full min-w-60 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl shadow-xl max-h-60 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 dark:border-slate-700">
+                        <Search className="w-4 h-4 text-gray-400 dark:text-slate-400" />
                         <input
                             autoFocus
-                            className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400"
+                            className="flex-1 bg-transparent text-sm text-gray-900 dark:text-slate-100 outline-none placeholder:text-gray-400 dark:placeholder:text-slate-400"
                             placeholder={placeholder}
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
@@ -185,12 +185,12 @@ function SearchableDropdown({
                     </div>
                     <div className="overflow-y-auto max-h-48">
                         {loading && (
-                            <div className="flex items-center justify-center py-4 text-gray-400 text-sm gap-2">
+                            <div className="flex items-center justify-center py-4 text-gray-400 dark:text-slate-400 text-sm gap-2">
                                 <Loader2 className="w-4 h-4 animate-spin" /> Loading...
                             </div>
                         )}
                         {!loading && filtered.length === 0 && (
-                            <div className="py-4 text-center text-sm text-gray-400">No results found</div>
+                            <div className="py-4 text-center text-sm text-gray-400 dark:text-slate-400">No results found</div>
                         )}
                         {!loading &&
                             filtered.map((opt) => (
@@ -201,11 +201,11 @@ function SearchableDropdown({
                                         onChange(opt.value);
                                         setOpen(false);
                                     }}
-                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 transition-colors flex items-center gap-2 ${value === opt.value ? "bg-indigo-50 text-indigo-700 font-medium" : "text-gray-700"
+                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors flex items-center gap-2 ${value === opt.value ? "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-medium" : "text-gray-700 dark:text-slate-200"
                                         }`}
                                 >
                                     {renderOption ? renderOption(opt) : opt.label}
-                                    {value === opt.value && <CheckCircle2 className="w-3.5 h-3.5 ml-auto text-indigo-600" />}
+                                    {value === opt.value && <CheckCircle2 className="w-3.5 h-3.5 ml-auto text-indigo-600 dark:text-indigo-300" />}
                                 </button>
                             ))}
                     </div>
@@ -910,88 +910,90 @@ export default function ApplicantDashboard() {
 
                 {/* ─────────── Onboarding Dialog ─────────── */}
                 <Dialog open={onboardingOpen} onOpenChange={setOnboardingOpen}>
-                    <DialogContent className="max-w-lg rounded-2xl max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
-                            <DialogTitle>Quick onboarding (30-60 seconds)</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-3 py-2">
-                            {onboardingError && (
-                                <div className="text-xs bg-red-50 text-red-600 p-2 rounded-lg border border-red-100 font-medium">
-                                    {onboardingError}
-                                </div>
-                            )}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 mb-1">First name</label>
-                                    <Input
-                                        placeholder="John"
-                                        value={onboardingForm.firstName}
-                                        onChange={(e) => setOnboardingForm((prev) => ({ ...prev, firstName: e.target.value }))}
-                                        className="h-10 rounded-xl"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 mb-1">Last name</label>
-                                    <Input
-                                        placeholder="Doe"
-                                        value={onboardingForm.lastName}
-                                        onChange={(e) => setOnboardingForm((prev) => ({ ...prev, lastName: e.target.value }))}
-                                        className="h-10 rounded-xl"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Phone with Country Code */}
-                            <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1">Phone number</label>
-                                <div className="flex gap-2 items-center">
-                                    <div className="w-32 shrink-0">
-                                        <SearchableDropdown
-                                            label=""
-                                            icon={<Phone className="w-3.5 h-3.5 text-gray-400" />}
-                                            options={phoneCodeOptions}
-                                            value={onboardingForm.phoneCodeVal}
-                                            onChange={(val) => setOnboardingForm((prev) => ({ ...prev, phoneCodeVal: val }))}
-                                            loading={countriesLoading}
-                                            placeholder="Code"
-                                            renderOption={(opt) => {
-                                                const [flag, dial] = opt.label.split(" ");
-                                                return (
-                                                    <div className="flex-1 flex justify-between items-center overflow-hidden gap-1">
-                                                        <span className="flex items-center gap-1.5 min-w-0">
-                                                            <span className="shrink-0">{flag}</span>
-                                                            <span className="text-gray-700 font-medium truncate block">{opt.extra}</span>
-                                                        </span>
-                                                        <span className="text-gray-400 text-[10px] font-mono shrink-0 pl-1">{dial}</span>
-                                                    </div>
-                                                );
-                                            }}
+                    <DialogContent className="max-w-lg rounded-2xl h-[60vh] overflow-y-auto flex flex-col justify-between">
+                        <div>
+                            <DialogHeader>
+                                <DialogTitle>Quick onboarding (30-60 seconds)</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-3 py-2">
+                                {onboardingError && (
+                                    <div className="text-xs bg-red-50 text-red-600 p-2 rounded-lg border border-red-100 font-medium">
+                                        {onboardingError}
+                                    </div>
+                                )}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">First name</label>
+                                        <Input
+                                            placeholder="John"
+                                            value={onboardingForm.firstName}
+                                            onChange={(e) => setOnboardingForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                                            className="h-10 rounded-xl"
                                         />
                                     </div>
-                                    <Input
-                                        placeholder="999999999"
-                                        value={onboardingForm.phone}
-                                        onChange={(e) => setOnboardingForm((prev) => ({ ...prev, phone: e.target.value }))}
-                                        className="h-10 rounded-xl flex-1 mt-1"
-                                    />
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">Last name</label>
+                                        <Input
+                                            placeholder="Doe"
+                                            value={onboardingForm.lastName}
+                                            onChange={(e) => setOnboardingForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                                            className="h-10 rounded-xl"
+                                        />
+                                    </div>
                                 </div>
+
+                                {/* Phone with Country Code */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Phone number</label>
+                                    <div className="flex gap-2 items-center">
+                                        <div className="w-32 shrink-0">
+                                            <SearchableDropdown
+                                                label=""
+                                                icon={<Phone className="w-3.5 h-3.5 text-gray-400 dark:text-slate-400" />}
+                                                options={phoneCodeOptions}
+                                                value={onboardingForm.phoneCodeVal}
+                                                onChange={(val) => setOnboardingForm((prev) => ({ ...prev, phoneCodeVal: val }))}
+                                                loading={countriesLoading}
+                                                placeholder="Code"
+                                                renderOption={(opt) => {
+                                                    const [flag, dial] = opt.label.split(" ");
+                                                    return (
+                                                        <div className="flex-1 flex justify-between items-center overflow-hidden gap-1">
+                                                            <span className="flex items-center gap-1.5 min-w-0">
+                                                                <span className="shrink-0">{flag}</span>
+                                                                <span className="text-gray-700 dark:text-slate-200 font-medium truncate block">{opt.extra}</span>
+                                                            </span>
+                                                            <span className="text-gray-400 dark:text-slate-400 text-[10px] font-mono shrink-0 pl-1">{dial}</span>
+                                                        </div>
+                                                    );
+                                                }}
+                                            />
+                                        </div>
+                                        <Input
+                                            placeholder="999999999"
+                                            value={onboardingForm.phone}
+                                            onChange={(e) => setOnboardingForm((prev) => ({ ...prev, phone: e.target.value }))}
+                                            className="h-10 rounded-xl flex-1 mt-1"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Location (country picker) */}
+                                <SearchableDropdown
+                                    label="Location"
+                                    icon={<Globe2 className="w-3.5 h-3.5 text-gray-400 dark:text-slate-400" />}
+                                    options={locationOptions}
+                                    value={onboardingForm.location}
+                                    onChange={(val) => setOnboardingForm((prev) => ({ ...prev, location: val }))}
+                                    loading={countriesLoading}
+                                    placeholder="Select your country..."
+                                    renderOption={(opt) => <span>{opt.label}</span>}
+                                />
+
+
                             </div>
-
-                            {/* Location (country picker) */}
-                            <SearchableDropdown
-                                label="Location"
-                                icon={<Globe2 className="w-3.5 h-3.5 text-gray-400" />}
-                                options={locationOptions}
-                                value={onboardingForm.location}
-                                onChange={(val) => setOnboardingForm((prev) => ({ ...prev, location: val }))}
-                                loading={countriesLoading}
-                                placeholder="Select your country..."
-                                renderOption={(opt) => <span>{opt.label}</span>}
-                            />
-
-
                         </div>
-                        <DialogFooter>
+                        <DialogFooter className="">
                             <Button variant="outline" onClick={() => setOnboardingOpen(false)} className="rounded-xl">Cancel</Button>
                             <Button onClick={saveOnboarding} disabled={onboardingSaving} className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white">
                                 {onboardingSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}

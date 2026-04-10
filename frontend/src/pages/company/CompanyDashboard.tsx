@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation } from "@apollo/client/react";
+import { useQuery, useMutation, useApolloClient } from "@apollo/client/react";
 import { toast } from "react-toastify";
 import {
     Briefcase, Plus, Pencil, Trash2, Users, ToggleLeft, ToggleRight,
@@ -23,7 +23,8 @@ import {
     GET_COMPANY_JOBS, GET_JOB_APPLICANTS,
     GET_ALL_SKILLS, GET_ALL_CATEGORIES,
     CREATE_JOB, UPDATE_JOB, DELETE_JOB, UPDATE_APPLICATION_STATUS,
-    GET_JOB_QUESTIONS, GENERATE_AI_JOB_QUESTIONS, DELETE_JOB_QUESTION,
+    GET_JOB_QUESTIONS, GENERATE_AI_JOB_QUESTIONS, DELETE_JOB_QUESTION, DELETE_ALL_JOB_QUESTIONS,
+    GET_AI_JOB_DRAFT_RESULT, QUEUE_AI_JOB_DRAFT,
 } from "@/graphql/jobs";
 
 /* ─── Types ──────────────────────────────────────────── */
@@ -107,6 +108,33 @@ interface DeleteJobQuestionData {
     };
 }
 
+interface DeleteAllJobQuestionsData {
+    deleteAllJobQuestions: {
+        success: boolean;
+        deletedCount: number;
+    };
+}
+
+interface QueueAiJobDraftData {
+    queueAiJobDraft: {
+        success: boolean;
+        queued: boolean;
+        requestId: string;
+        message?: string;
+    };
+}
+
+interface AiJobDraftResultData {
+    aiJobDraftResult: {
+        requestId: string;
+        status: string;
+        message?: string;
+        generatedDescription?: string | null;
+        suggestedSkillIds?: number[] | null;
+        suggestedSkillNames?: string[] | null;
+    };
+}
+
 type Tab = "jobs" | "post" | "applicants";
 
 const DASHBOARD_TAB_STORAGE_KEY = "company-dashboard-active-tab";
@@ -123,9 +151,24 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 
 const STATUS_OPTIONS = ["applied", "reviewing", "shortlisted", "rejected", "hired"];
 
+const TITLE_TEMPLATES = [
+    "Senior Frontend Engineer (React + TypeScript)",
+    "Backend Python Developer (Django + GraphQL)",
+    "Full Stack Engineer (React, Django, PostgreSQL)",
+    "DevOps Engineer (Docker, CI/CD, AWS)",
+];
+
+const isDescriptiveTitle = (title: string) => {
+    const trimmed = (title || "").trim();
+    const words = trimmed.split(/\s+/).filter(Boolean);
+    return trimmed.length >= 12 && words.length >= 3;
+};
+
 /* ─── Schema ────────────────────────────────────────── */
 const jobSchema = z.object({
-    title: z.string().min(5, "Title must be at least 5 characters"),
+    title: z.string()
+        .min(5, "Title must be at least 5 characters")
+        .refine((value) => isDescriptiveTitle(value), "Use a descriptive title (at least 3 words)"),
     description: z.string().min(20, "Description must be at least 20 characters"),
     location: z.string().optional(),
     salaryRange: z.string().optional(),
@@ -153,11 +196,26 @@ interface JobFormProps {
     allCategories: Category[];
     allSkills: Skill[];
     onSubmit: (v: JobFormValues) => void;
+    onAiGenerateDescription: (title: string) => Promise<string | null>;
+    onAiGenerateSkills: (title: string) => Promise<string[] | null>;
+    aiDescriptionLoading?: boolean;
+    aiSkillsLoading?: boolean;
     loading: boolean;
     submitLabel?: string;
 }
 
-function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitLabel = "Save" }: JobFormProps) {
+function JobForm({
+    initial,
+    allCategories,
+    allSkills,
+    onSubmit,
+    onAiGenerateDescription,
+    onAiGenerateSkills,
+    aiDescriptionLoading = false,
+    aiSkillsLoading = false,
+    loading,
+    submitLabel = "Save",
+}: JobFormProps) {
     const [categorySearch, setCategorySearch] = useState("");
     const [skillSearch, setSkillSearch] = useState("");
 
@@ -181,6 +239,7 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
             {({ isValid, dirty, values, setFieldValue }) => {
                 const normalizedCategoryQuery = categorySearch.trim().toLowerCase();
                 const selectedCategoryIds = new Set(values.categoryIds);
+                const titleIsDescriptive = isDescriptiveTitle(values.title);
                 const filteredCategories = allCategories
                     .filter((category) => {
                         if (!normalizedCategoryQuery) {
@@ -201,7 +260,7 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                     return haystack.includes(normalizedQuery);
                 });
 
-                const selectedSkills = filteredSkills
+                const selectedSkills = allSkills
                     .filter((skill) => selectedSkillIds.has(skill.id))
                     .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -217,6 +276,21 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                         </label>
                         <Field as={Input} name="title" placeholder="e.g. Senior Frontend Engineer" />
                         <ErrorMessage name="title" component="p" className="text-xs text-red-500 mt-1" />
+                        <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+                            Tip: make the title specific, for example “Senior Frontend Engineer (React + TypeScript)”.
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            {TITLE_TEMPLATES.map((template) => (
+                                <button
+                                    key={template}
+                                    type="button"
+                                    onClick={() => setFieldValue("title", template)}
+                                    className="text-xs px-2.5 py-1 rounded-full border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+                                >
+                                    Use: {template}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -236,7 +310,31 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                         <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-1">
                             Minimum Experience Required (years)
                         </label>
-                        <Field as={Input} type="number" min="0" name="minimumExperienceRequired" />
+                        <Field
+                            as={Input}
+                            type="number"
+                            min="0"
+                            name="minimumExperienceRequired"
+                            className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                                if (["-", "+", "e", "E"].includes(e.key)) {
+                                    e.preventDefault();
+                                }
+                            }}
+                            onPaste={(e: React.ClipboardEvent<HTMLInputElement>) => {
+                                const pasted = e.clipboardData.getData("text");
+                                if (!/^\d+$/.test(pasted)) {
+                                    e.preventDefault();
+                                }
+                            }}
+                            onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                                const input = e.currentTarget;
+                                input.value = input.value.replace(/\D+/g, "");
+                            }}
+                            onWheel={(e: React.WheelEvent<HTMLInputElement>) => {
+                                e.currentTarget.blur();
+                            }}
+                        />
                         <ErrorMessage name="minimumExperienceRequired" component="p" className="text-xs text-red-500 mt-1" />
                     </div>
 
@@ -289,9 +387,30 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-1">
-                            Skills for Resume Shortlisting
-                        </label>
+                        <div className="flex items-center justify-between gap-3 mb-1">
+                            <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block">
+                                Skills for Resume Shortlisting
+                            </label>
+                            {titleIsDescriptive && (
+                                <Button
+                                    type="button"
+                                    // variant="outline"
+                                    size="sm"
+                                    disabled={aiDescriptionLoading || aiSkillsLoading}
+                                    onClick={async () => {
+                                        const suggestedIds = await onAiGenerateSkills(values.title);
+                                        if (suggestedIds && suggestedIds.length > 0) {
+                                            const merged = Array.from(new Set([...(values.skillIds ?? []), ...suggestedIds]));
+                                            setFieldValue("skillIds", merged);
+                                        }
+                                    }}
+                                    className="border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 cursor-pointer"
+                                >
+                                    {aiSkillsLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                                    AI Skills
+                                </Button>
+                            )}
+                        </div>
                         <div className="relative mb-2">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <Input
@@ -308,7 +427,7 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                             )}
 
                             {selectedSkills.length > 0 && (
-                                <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-2">
+                                <div className="rounded-lg border border-indigo-100 bg-indigo-50/20 dark:bg-transparent p-2">
                                     <p className="text-xs font-semibold text-indigo-700 mb-1">Selected Skills</p>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                                         {selectedSkills.map((skill) => {
@@ -316,7 +435,7 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                                             return (
                                                 <label
                                                     key={skill.id}
-                                                    className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer"
+                                                    className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-indigo-50 dark:hover:hover:bg-slate-800 cursor-pointer"
                                                 >
                                                     <input
                                                         type="checkbox"
@@ -373,9 +492,29 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-1">
-                            Description <span className="text-red-500">*</span>
-                        </label>
+                        <div className="flex items-center justify-between gap-3 mb-1">
+                            <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block">
+                                Description <span className="text-red-500">*</span>
+                            </label>
+                            {titleIsDescriptive && (
+                                <Button
+                                    type="button"
+                                    // variant="outline"
+                                    size="sm"
+                                    disabled={aiDescriptionLoading || aiSkillsLoading}
+                                    onClick={async () => {
+                                        const generated = await onAiGenerateDescription(values.title);
+                                        if (generated) {
+                                            setFieldValue("description", generated);
+                                        }
+                                    }}
+                                    className="border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 cursor-pointer"
+                                >
+                                    {aiDescriptionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                                    AI Description
+                                </Button>
+                            )}
+                        </div>
                         <Field
                             as="textarea"
                             name="description"
@@ -406,6 +545,7 @@ function JobForm({ initial, allCategories, allSkills, onSubmit, loading, submitL
 /* ─── Main Component ─────────────────────────────────── */
 export default function CompanyDashboard() {
     const navigate = useNavigate();
+    const client = useApolloClient();
     const [activeTab, setActiveTab] = useState<Tab>(() => {
         if (typeof window === "undefined") {
             return "jobs";
@@ -427,6 +567,8 @@ export default function CompanyDashboard() {
     const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({});
     const [awaitingGeneratedQuestions, setAwaitingGeneratedQuestions] = useState(false);
     const [baselineQuestionCount, setBaselineQuestionCount] = useState<number | null>(null);
+    const [aiDescriptionLoading, setAiDescriptionLoading] = useState(false);
+    const [aiSkillsLoading, setAiSkillsLoading] = useState(false);
     const questionPollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const questionPollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -544,11 +686,25 @@ export default function CompanyDashboard() {
             onCompleted() {
                 flash("Question deleted");
                 refetchQuestions();
+                refetchJobs();
             },
             onError(error) {
                 flashError("Error: " + error.message);
             },
         });
+    const [deleteAllQuestions, { loading: deletingAllQuestions }] =
+        useMutation<DeleteAllJobQuestionsData>(DELETE_ALL_JOB_QUESTIONS, {
+            onCompleted(data) {
+                const count = data.deleteAllJobQuestions?.deletedCount ?? 0;
+                flash(count > 0 ? `Deleted ${count} questions.` : "No questions to delete.");
+                refetchQuestions();
+                refetchJobs();
+            },
+            onError(error) {
+                flashError("Error: " + error.message);
+            },
+        });
+    const [queueAiJobDraft] = useMutation<QueueAiJobDraftData>(QUEUE_AI_JOB_DRAFT);
 
     const handleToggleJobStatus = useCallback(async (job: Job) => {
         const nextStatus = !job.isActive;
@@ -587,6 +743,124 @@ export default function CompanyDashboard() {
             flashError(error instanceof Error ? error.message : "Unable to update job.");
         }
     }, [flash, flashError, updateJob]);
+
+    const pollAiJobDraft = useCallback(async (requestId: string) => {
+        const started = Date.now();
+        const timeoutMs = 35000;
+        const intervalMs = 2500;
+
+        while (Date.now() - started < timeoutMs) {
+            const { data } = await client.query<AiJobDraftResultData>({
+                query: GET_AI_JOB_DRAFT_RESULT,
+                variables: { requestId },
+                fetchPolicy: "network-only",
+            });
+
+            const result = data?.aiJobDraftResult;
+            if (!result) {
+                await new Promise((resolve) => setTimeout(resolve, intervalMs));
+                continue;
+            }
+
+            const status = (result.status || "").toLowerCase();
+            if (status === "completed" || status === "failed" || status === "not_found") {
+                return result;
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        }
+
+        return null;
+    }, [client]);
+
+    const handleAiGenerateDescription = useCallback(async (title: string) => {
+        if (!isDescriptiveTitle(title)) {
+            flashError("Enter a more descriptive job title first.");
+            return null;
+        }
+
+        setAiDescriptionLoading(true);
+        try {
+            const { data } = await queueAiJobDraft({
+                variables: {
+                    title: title.trim(),
+                    kind: "description",
+                },
+            });
+
+            const requestId = data?.queueAiJobDraft?.requestId;
+            if (!requestId) {
+                flashError("Could not queue AI description generation.");
+                return null;
+            }
+
+            flash("Generating AI description...");
+            const result = await pollAiJobDraft(requestId);
+            if (!result || (result.status || "").toLowerCase() !== "completed") {
+                flashError(result?.message || "AI description generation failed.");
+                return null;
+            }
+
+            const description = (result.generatedDescription || "").trim();
+            if (!description) {
+                flashError("AI returned an empty description.");
+                return null;
+            }
+
+            flash("AI description added.");
+            return description;
+        } catch (error) {
+            flashError(error instanceof Error ? error.message : "Failed to generate AI description.");
+            return null;
+        } finally {
+            setAiDescriptionLoading(false);
+        }
+    }, [flash, flashError, pollAiJobDraft, queueAiJobDraft]);
+
+    const handleAiGenerateSkills = useCallback(async (title: string) => {
+        if (!isDescriptiveTitle(title)) {
+            flashError("Enter a more descriptive job title first.");
+            return null;
+        }
+
+        setAiSkillsLoading(true);
+        try {
+            const { data } = await queueAiJobDraft({
+                variables: {
+                    title: title.trim(),
+                    kind: "skills",
+                    maxSkills: 10,
+                },
+            });
+
+            const requestId = data?.queueAiJobDraft?.requestId;
+            if (!requestId) {
+                flashError("Could not queue AI skill suggestions.");
+                return null;
+            }
+
+            flash("Generating AI skills...");
+            const result = await pollAiJobDraft(requestId);
+            if (!result || (result.status || "").toLowerCase() !== "completed") {
+                flashError(result?.message || "AI skills generation failed.");
+                return null;
+            }
+
+            const skillIds = (result.suggestedSkillIds ?? []).map((id) => String(id));
+            if (!skillIds.length) {
+                flashError("AI could not map skills from title.");
+                return null;
+            }
+
+            flash("AI skills selected.");
+            return skillIds;
+        } catch (error) {
+            flashError(error instanceof Error ? error.message : "Failed to generate AI skills.");
+            return null;
+        } finally {
+            setAiSkillsLoading(false);
+        }
+    }, [flash, flashError, pollAiJobDraft, queueAiJobDraft]);
 
     const jobs = useMemo(() => jobsData?.companyJobs ?? [], [jobsData?.companyJobs]);
     const allSkills = skillsData?.allSkills ?? [];
@@ -775,6 +1049,10 @@ export default function CompanyDashboard() {
                                 <JobForm
                                     allCategories={allCategories}
                                     allSkills={allSkills}
+                                    onAiGenerateDescription={handleAiGenerateDescription}
+                                    onAiGenerateSkills={handleAiGenerateSkills}
+                                    aiDescriptionLoading={aiDescriptionLoading}
+                                    aiSkillsLoading={aiSkillsLoading}
                                     loading={creating}
                                     submitLabel="Post Job"
                                     onSubmit={(v) =>
@@ -937,7 +1215,23 @@ export default function CompanyDashboard() {
                             <span>
                                 Generate AI questions up to limit. Remaining slots: <strong>{remainingQuestionSlots}</strong>
                             </span>
-                            <Button
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={!questionsJob?.id || questions.length === 0 || deletingAllQuestions}
+                                    onClick={() => {
+                                        if (!questionsJob?.id) return;
+                                        const confirmed = window.confirm("Delete all interview questions for this job?");
+                                        if (!confirmed) return;
+                                        deleteAllQuestions({ variables: { jobId: Number(questionsJob.id) } });
+                                    }}
+                                    className="border-red-200 text-red-700 hover:bg-red-50"
+                                >
+                                    {deletingAllQuestions ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Trash2 className="w-4 h-4 mr-1" />}
+                                    Delete All
+                                </Button>
+                                <Button
                                 type="button"
                                 disabled={!questionsJob?.id || remainingQuestionSlots <= 0 || generatingAiQuestions}
                                 onClick={() => {
@@ -969,6 +1263,7 @@ export default function CompanyDashboard() {
                                             clearQuestionsPolling();
                                             setAwaitingGeneratedQuestions(false);
                                             setBaselineQuestionCount(null);
+                                            refetchJobs();
                                             flash("Questions generated successfully.");
                                         }
                                     }, 5000);
@@ -986,7 +1281,8 @@ export default function CompanyDashboard() {
                             >
                                 {generatingAiQuestions ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
                                 {generatingAiQuestions ? "Queueing..." : "Generate AI Questions"}
-                            </Button>
+                                </Button>
+                            </div>
                         </div>
 
                         <div className="max-h-[45vh] overflow-y-auto space-y-2 pr-1">
@@ -1058,6 +1354,10 @@ export default function CompanyDashboard() {
                             <JobForm
                                 allCategories={allCategories}
                                 allSkills={allSkills}
+                                onAiGenerateDescription={handleAiGenerateDescription}
+                                onAiGenerateSkills={handleAiGenerateSkills}
+                                aiDescriptionLoading={aiDescriptionLoading}
+                                aiSkillsLoading={aiSkillsLoading}
                                 initial={{
                                     title: editJob.title,
                                     description: editJob.description,

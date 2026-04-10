@@ -159,6 +159,19 @@ export const GET_JOB_QUESTIONS = gql`
   }
 `;
 
+export const GET_AI_JOB_DRAFT_RESULT = gql`
+  query GetAiJobDraftResult($requestId: String!) {
+    aiJobDraftResult(requestId: $requestId) {
+      requestId
+      status
+      message
+      generatedDescription
+      suggestedSkillIds
+      suggestedSkillNames
+    }
+  }
+`;
+
 // ─────────────────────────────────────────
 // Mutations
 // ─────────────────────────────────────────
@@ -292,6 +305,34 @@ export const DELETE_JOB_QUESTION = gql`
   mutation DeleteJobQuestion($questionId: Int!) {
     deleteJobQuestion(questionId: $questionId) {
       success
+    }
+  }
+`;
+
+export const DELETE_ALL_JOB_QUESTIONS = gql`
+  mutation DeleteAllJobQuestions($jobId: Int!) {
+    deleteAllJobQuestions(jobId: $jobId) {
+      success
+      deletedCount
+    }
+  }
+`;
+
+export const QUEUE_AI_JOB_DRAFT = gql`
+  mutation QueueAiJobDraft(
+    $title: String!
+    $kind: String!
+    $maxSkills: Int
+  ) {
+    queueAiJobDraft(
+      title: $title
+      kind: $kind
+      maxSkills: $maxSkills
+    ) {
+      success
+      queued
+      requestId
+      message
     }
   }
 `;

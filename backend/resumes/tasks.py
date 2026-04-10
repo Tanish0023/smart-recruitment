@@ -1,6 +1,7 @@
 from celery import shared_task
 from .models import Resume
 from jobs.models import Skill, Job, JobApplication, JobQuestions
+from jobs.models import AiJobDraftRequest
 from django.utils import timezone
 from django.db import transaction
 from io import BytesIO
@@ -1129,3 +1130,212 @@ def get_questions_from_jd(job_id, requested_count=15):
             "total": final_total,
             "message": "Questions created",
         }
+
+
+def _save_ai_job_draft(request_id, payload):
+    draft = AiJobDraftRequest.objects.filter(request_id=request_id).first()
+    if not draft:
+        return
+
+    draft.status = payload.get("status", draft.status)
+    draft.message = payload.get("message")
+    draft.generated_description = payload.get("generated_description")
+    draft.suggested_skill_ids = payload.get("suggested_skill_ids", [])
+    draft.suggested_skill_names = payload.get("suggested_skill_names", [])
+    draft.save(
+        update_fields=[
+            "status",
+            "message",
+            "generated_description",
+            "suggested_skill_ids",
+            "suggested_skill_names",
+            "updated_at",
+        ]
+    )
+
+
+@shared_task(queue="get-questions")
+def generate_ai_job_draft(
+    request_id,
+    title,
+    kind="description",
+    max_skills=8,
+):
+    payload = {
+        "status": AiJobDraftRequest.STATUS_PROCESSING,
+        "message": "Generating AI draft",
+        "generated_description": None,
+        "suggested_skill_ids": [],
+        "suggested_skill_names": [],
+    }
+    _save_ai_job_draft(request_id, payload)
+
+    try:
+        from google import genai
+    except ImportError:
+        logger.exception("google-genai is not installed; cannot generate AI job draft")
+        payload.update(
+            {
+                "status": AiJobDraftRequest.STATUS_FAILED,
+                "message": "AI provider dependency not installed",
+            }
+        )
+        _save_ai_job_draft(request_id, payload)
+        return payload
+
+    api_key = (
+        os.getenv("GEMINI_API")
+        or os.getenv("GOOGLE_API_KEY")
+        or getattr(settings, "GEMINI_API", None)
+        or getattr(settings, "GOOGLE_API_KEY", None)
+    )
+    if not api_key:
+        logger.error("Missing Gemini API key. Set GEMINI_API or GOOGLE_API_KEY")
+        payload.update(
+            {
+                "status": AiJobDraftRequest.STATUS_FAILED,
+                "message": "Missing Gemini API key",
+            }
+        )
+        _save_ai_job_draft(request_id, payload)
+        return payload
+
+    try:
+        client = genai.Client(api_key=api_key)
+    except Exception:
+        logger.exception("Failed to initialize Gemini client for job draft")
+        payload.update(
+            {
+                "status": AiJobDraftRequest.STATUS_FAILED,
+                "message": "Failed to initialize AI client",
+            }
+        )
+        _save_ai_job_draft(request_id, payload)
+        return payload
+
+    all_skills = list(Skill.objects.only("id", "name", "aliases").order_by("name"))
+    if not all_skills:
+        payload.update(
+            {
+                "status": AiJobDraftRequest.STATUS_COMPLETED,
+                "message": "No skills catalog found; generated description only",
+            }
+        )
+        _save_ai_job_draft(request_id, payload)
+        return payload
+
+    skill_lines = "\n".join([f"- {skill.name}" for skill in all_skills])
+    desired_skill_count = max(min(int(max_skills or 8), 15), 1)
+    normalized_kind = (kind or "description").strip().lower()
+
+    if normalized_kind == "skills":
+        prompt = (
+            "You are an expert recruiter assistant. "
+            "Return ONLY valid JSON object with shape "
+            '{"skills":["skill 1","skill 2"]}. '
+            "No markdown, no explanation. "
+            f"Suggest up to {desired_skill_count} most relevant skills for this job title: '{title}'. "
+            f"Use ONLY skills from this catalog:\n{skill_lines}\n"
+            "Do not invent new skill names."
+        )
+    else:
+        prompt = (
+            "You are an expert recruiter assistant. "
+            "Return ONLY valid JSON object with shape "
+            '{"description":"..."}. '
+            "No markdown, no explanation. "
+            f"Write a professional and concise job description for this title: '{title}'. "
+            "Include role overview, key responsibilities, and required qualifications as plain text paragraphs."
+        )
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
+    except Exception:
+        logger.exception("Gemini generate_content failed for job draft")
+        payload.update(
+            {
+                "status": AiJobDraftRequest.STATUS_FAILED,
+                "message": "AI generation failed",
+            }
+        )
+        _save_ai_job_draft(request_id, payload)
+        return payload
+
+    raw_text = (getattr(response, "text", "") or "").strip()
+    if not raw_text:
+        payload.update(
+            {
+                "status": AiJobDraftRequest.STATUS_FAILED,
+                "message": "Empty response from model",
+            }
+        )
+        _save_ai_job_draft(request_id, payload)
+        return payload
+
+    data = None
+    try:
+        data = json.loads(raw_text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{[\s\S]*\}", raw_text)
+        if match:
+            try:
+                data = json.loads(match.group(0))
+            except json.JSONDecodeError:
+                data = None
+
+    if not isinstance(data, dict):
+        payload.update(
+            {
+                "status": AiJobDraftRequest.STATUS_FAILED,
+                "message": "Invalid AI response format",
+            }
+        )
+        _save_ai_job_draft(request_id, payload)
+        return payload
+
+    generated_description = str(data.get("description") or "").strip()
+    suggested_names_raw = data.get("skills")
+    if not isinstance(suggested_names_raw, list):
+        suggested_names_raw = []
+
+    # Build lookup by skill name and aliases to map AI text back to canonical skill IDs.
+    lookup = {}
+    for skill in all_skills:
+        name_key = skill.name.strip().lower()
+        if name_key:
+            lookup[name_key] = skill
+
+        aliases = skill.aliases or []
+        if isinstance(aliases, list):
+            for alias in aliases:
+                alias_key = str(alias).strip().lower()
+                if alias_key and alias_key not in lookup:
+                    lookup[alias_key] = skill
+
+    selected_skills = []
+    seen_ids = set()
+    for raw_name in suggested_names_raw:
+        key = str(raw_name).strip().lower()
+        if not key:
+            continue
+        matched = lookup.get(key)
+        if matched and matched.id not in seen_ids:
+            seen_ids.add(matched.id)
+            selected_skills.append(matched)
+        if len(selected_skills) >= desired_skill_count:
+            break
+
+    payload.update(
+        {
+            "status": AiJobDraftRequest.STATUS_COMPLETED,
+            "message": "AI draft ready",
+            "generated_description": generated_description if normalized_kind == "description" else None,
+            "suggested_skill_ids": [int(skill.id) for skill in selected_skills] if normalized_kind == "skills" else [],
+            "suggested_skill_names": [skill.name for skill in selected_skills] if normalized_kind == "skills" else [],
+        }
+    )
+    _save_ai_job_draft(request_id, payload)
+    return payload
