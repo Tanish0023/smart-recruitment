@@ -1,5 +1,97 @@
 let googleScriptPromise: Promise<void> | null = null;
 
+async function isBraveBrowser(): Promise<boolean> {
+  try {
+    if (typeof navigator === "undefined") {
+      return false;
+    }
+    return Boolean((navigator as Navigator & { brave?: { isBrave?: () => Promise<boolean> } }).brave?.isBrave?.());
+  } catch {
+    return false;
+  }
+}
+
+function openGoogleAccountChooser(): void {
+  const googleChooserUrl =
+    "https://accounts.google.com/AccountChooser?continue=https%3A%2F%2Faccounts.google.com%2F";
+  window.open(googleChooserUrl, "_blank", "noopener,noreferrer");
+}
+
+function requestGoogleAccessToken(clientId: string): Promise<string> {
+  const oauth2 = window.google?.accounts?.oauth2;
+  if (!oauth2) {
+    return Promise.reject(new Error("Google OAuth popup fallback is unavailable in this browser session."));
+  }
+
+  return new Promise((resolve, reject) => {
+    const tokenClient = oauth2.initTokenClient({
+      client_id: clientId,
+      scope: "openid email profile",
+      prompt: "select_account",
+      callback: (response) => {
+        if (response.error) {
+          reject(
+            new Error(
+              response.error_description || `Google OAuth popup failed (${response.error}). Please retry.`
+            )
+          );
+          return;
+        }
+
+        if (!response.access_token) {
+          reject(new Error("Google OAuth popup did not return an access token."));
+          return;
+        }
+
+        resolve(response.access_token);
+      },
+    });
+
+    tokenClient.requestAccessToken({ prompt: "select_account" });
+  });
+}
+
+async function getGoogleSkippedMessage(reason: string): Promise<string> {
+  const isBrave = await isBraveBrowser();
+
+  if (reason === "opt_out_or_no_session") {
+    if (isBrave) {
+      return "Brave blocked the Google session handshake. We opened Google account chooser in a new tab. Complete sign-in/account selection there, then try again. If needed, lower Shields for this site and allow third-party cookies/popups.";
+    }
+    return "No active Google session found. Please sign in to Gmail in this browser, then try Google sign-in again.";
+  }
+
+  if (reason === "browser_not_supported") {
+    return "Google sign-in is not supported in this browser profile. Try another profile or browser.";
+  }
+
+  return `Google sign-in was skipped (${reason}). Try again or use another browser profile.`;
+}
+
+async function getGoogleNotDisplayedMessage(reason: string): Promise<string> {
+  const isBrave = await isBraveBrowser();
+
+  if (reason === "opt_out_or_no_session") {
+    if (isBrave) {
+      return "Brave blocked Google sign-in for this site. We opened Google account chooser in a new tab. Complete it, then retry. If this repeats, lower Shields for this site and allow third-party cookies/popups.";
+    }
+    return "No active Google session found. Please sign in to Gmail and retry Google sign-in.";
+  }
+
+  if (reason === "suppressed_by_user") {
+    if (isBrave) {
+      return "Google sign-in was suppressed by Brave privacy settings. Please lower Shields for this site and allow third-party cookies/popups, then retry.";
+    }
+    return "Google sign-in was suppressed by browser privacy settings. Please retry after enabling cookies/popups for this site.";
+  }
+
+  if (reason === "secure_http_required") {
+    return "Google sign-in requires a secure origin (HTTPS or localhost).";
+  }
+
+  return `Google sign-in could not be displayed (${reason}). Check OAuth client origin settings.`;
+}
+
 function loadGoogleScript(): Promise<void> {
   if (googleScriptPromise) {
     return googleScriptPromise;
@@ -47,6 +139,15 @@ export async function requestGoogleIdToken(): Promise<string> {
   return new Promise((resolve, reject) => {
     let received = false;
     let settled = false;
+
+    const failWithPopupFallback = async (message: string) => {
+      try {
+        const fallbackToken = await requestGoogleAccessToken(clientId);
+        succeed(fallbackToken);
+      } catch {
+        fail(message);
+      }
+    };
 
     const fail = (message: string) => {
       if (settled) {
@@ -98,14 +199,24 @@ export async function requestGoogleIdToken(): Promise<string> {
       if (notDisplayed) {
         const reason = notification.getNotDisplayedReason?.() ?? "unknown_reason";
         window.clearTimeout(timeoutId);
-        fail(`Google sign-in could not be displayed (${reason}). Check OAuth client origin settings.`);
+        if (reason === "opt_out_or_no_session") {
+          openGoogleAccountChooser();
+        }
+        void getGoogleNotDisplayedMessage(reason).then((message) => {
+          void failWithPopupFallback(message);
+        });
         return;
       }
 
       if (skipped) {
         const reason = notification.getSkippedReason?.() ?? "unknown_reason";
         window.clearTimeout(timeoutId);
-        fail(`Google sign-in was skipped (${reason}). Try again or use another browser profile.`);
+        if (reason === "opt_out_or_no_session") {
+          openGoogleAccountChooser();
+        }
+        void getGoogleSkippedMessage(reason).then((message) => {
+          void failWithPopupFallback(message);
+        });
         return;
       }
 

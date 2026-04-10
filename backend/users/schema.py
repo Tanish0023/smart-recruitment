@@ -2,6 +2,9 @@ import graphene
 import logging
 import os
 import re
+import json
+from urllib import request as urllib_request
+from urllib import error as urllib_error
 from pathlib import Path
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
@@ -59,8 +62,32 @@ def _verify_google_id_token(raw_id_token):
             google_requests.Request(),
             audience=None,
         )
-    except ValueError as exc:
-        raise GraphQLError("Invalid Google token") from exc
+    except ValueError:
+        try:
+            req = urllib_request.Request(
+                "https://openidconnect.googleapis.com/v1/userinfo",
+                headers={"Authorization": f"Bearer {raw_id_token}"},
+            )
+            with urllib_request.urlopen(req, timeout=10) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except (urllib_error.URLError, json.JSONDecodeError) as exc:
+            raise GraphQLError("Invalid Google token") from exc
+
+        if not payload.get("email_verified"):
+            raise GraphQLError("Google account email is not verified")
+
+        email = (payload.get("email") or "").strip().lower()
+        subject = (payload.get("sub") or "").strip()
+        if not email or not subject:
+            raise GraphQLError("Google token is missing required identity fields")
+
+        return {
+            "email": email,
+            "sub": subject,
+            "given_name": (payload.get("given_name") or "").strip(),
+            "family_name": (payload.get("family_name") or "").strip(),
+            "name": (payload.get("name") or "").strip(),
+        }
 
     aud = payload.get("aud")
     if aud not in client_ids:
