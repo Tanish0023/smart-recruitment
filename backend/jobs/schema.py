@@ -1,15 +1,17 @@
 import graphene
 from graphene_django.types import DjangoObjectType
+from graphene.types.generic import GenericScalar
 from graphql import GraphQLError
+from uuid import uuid4
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from django.db.models import F, Count
 from celery import current_app
 
-from jobs.models import Job, JobApplication, Skill, Category, JobQuestions
+from jobs.models import Job, JobApplication, Skill, Category, JobQuestions, AiJobDraftRequest
 from users.decorators import recruiter_with_company_required, user_required, get_user, ensure_verified_user
-from email_service.tasks import send_application_status_email
+from email_service.tasks import send_application_status_email, send_application_received_email
 
 User = get_user_model()
 
@@ -75,12 +77,13 @@ class JobType(DjangoObjectType):
             "skills",
             "categories",
             "questions",
+            "score_weight_skill",
+            "score_weight_category",
+            "score_weight_experience",
+            "score_weight_semantic",
         )
 
     def resolve_skills(self, info):
-        user = getattr(info.context, "user", None)
-        if not user or not user.is_authenticated or not user.is_recruiter:
-            return []
         return self.skills.all()
 
     def resolve_categories(self, info):
@@ -113,12 +116,22 @@ class JobApplicationType(DjangoObjectType):
             "score",
             "status",
             "applied_at",
+            "experience",
         )
 
     def resolve_resume_url(self, info):
         if self.resume and self.resume.file:
             return info.context.build_absolute_uri(self.resume.file.url)
         return None
+
+
+class AiJobDraftType(graphene.ObjectType):
+    request_id = graphene.String(required=True)
+    status = graphene.String(required=True)
+    message = graphene.String()
+    generated_description = graphene.String()
+    suggested_skill_ids = graphene.List(graphene.Int)
+    suggested_skill_names = graphene.List(graphene.String)
 
 
 class JobQuery(graphene.ObjectType):
@@ -141,6 +154,10 @@ class JobQuery(graphene.ObjectType):
         JobApplicationType,
         job_id=graphene.Int(required=True),
         sort_by=ApplicantsSortEnum(required=False, default_value=ApplicantsSortEnum.RANKING),
+    )
+    ai_job_draft_result = graphene.Field(
+        AiJobDraftType,
+        request_id=graphene.String(required=True),
     )
 
     # Public jobs
@@ -223,6 +240,29 @@ class JobQuery(graphene.ObjectType):
 
         return queryset.order_by(F("score").desc(nulls_last=True), "-applied_at")
 
+    @recruiter_with_company_required
+    def resolve_ai_job_draft_result(self, info, request_id):
+        user = info.context.user
+        draft = AiJobDraftRequest.objects.filter(request_id=request_id, created_by=user).first()
+        if not draft:
+            return AiJobDraftType(
+                request_id=request_id,
+                status="not_found",
+                message="Draft not found or expired",
+                generated_description=None,
+                suggested_skill_ids=[],
+                suggested_skill_names=[],
+            )
+
+        return AiJobDraftType(
+            request_id=str(draft.request_id),
+            status=draft.status,
+            message=draft.message,
+            generated_description=draft.generated_description,
+            suggested_skill_ids=draft.suggested_skill_ids or [],
+            suggested_skill_names=draft.suggested_skill_names or [],
+        )
+
 
 # =====================================================
 # MUTATIONS
@@ -239,6 +279,10 @@ class CreateJob(graphene.Mutation):
         minimum_experience_required = graphene.Int()
         skills = graphene.List(graphene.Int)
         categories = graphene.List(graphene.Int)
+        score_weight_skill = graphene.Float()
+        score_weight_category = graphene.Float()
+        score_weight_experience = graphene.Float()
+        score_weight_semantic = graphene.Float()
 
     def mutate(
         self,
@@ -250,6 +294,10 @@ class CreateJob(graphene.Mutation):
         minimum_experience_required=0,
         skills=None,
         categories=None,
+        score_weight_skill=None,
+        score_weight_category=None,
+        score_weight_experience=None,
+        score_weight_semantic=None,
     ):
         user = get_user(info)
         if not user:
@@ -260,6 +308,18 @@ class CreateJob(graphene.Mutation):
         if not user.company:
             raise GraphQLError("Recruiter not linked to company")
 
+        # Validate and set default scoring weights
+        weights = {
+            "score_weight_skill": score_weight_skill or 0.5,
+            "score_weight_category": score_weight_category or 0.2,
+            "score_weight_experience": score_weight_experience or 0.15,
+            "score_weight_semantic": score_weight_semantic or 0.15,
+        }
+
+        for key, value in weights.items():
+            if not (0.0 <= value <= 1.0):
+                raise GraphQLError(f"{key} must be between 0 and 1")
+
         job = Job.objects.create(
             title=title,
             description=description,
@@ -268,6 +328,7 @@ class CreateJob(graphene.Mutation):
             location=location,
             salary_range=salary_range,
             minimum_experience_required=max(minimum_experience_required or 0, 0),
+            **weights,
         )
 
         if skills:
@@ -296,6 +357,10 @@ class UpdateJob(graphene.Mutation):
         is_active = graphene.Boolean()
         skills = graphene.List(graphene.Int)
         categories = graphene.List(graphene.Int)
+        score_weight_skill = graphene.Float()
+        score_weight_category = graphene.Float()
+        score_weight_experience = graphene.Float()
+        score_weight_semantic = graphene.Float()
 
     def mutate(self, info, job_id, **kwargs):
         user = get_user(info)
@@ -320,6 +385,11 @@ class UpdateJob(graphene.Mutation):
                 continue
             if key == "minimum_experience_required" and value is not None:
                 setattr(job, key, max(value, 0))
+                continue
+            if key.startswith("score_weight_") and value is not None:
+                if not (0.0 <= value <= 1.0):
+                    raise GraphQLError(f"{key} must be between 0 and 1")
+                setattr(job, key, value)
                 continue
             if value is not None:
                 setattr(job, key, value)
@@ -447,6 +517,66 @@ class GenerateAiJobQuestions(graphene.Mutation):
         )
 
 
+class QueueAiJobDraft(graphene.Mutation):
+    success = graphene.Boolean()
+    queued = graphene.Boolean()
+    request_id = graphene.String()
+    message = graphene.String()
+
+    class Arguments:
+        title = graphene.String(required=True)
+        kind = graphene.String(required=True)
+        max_skills = graphene.Int(required=False)
+
+    def mutate(
+        self,
+        info,
+        title,
+        kind,
+        max_skills=8,
+    ):
+        user = get_user(info)
+        if not user:
+            raise GraphQLError("Authentication required")
+        ensure_verified_user(user)
+        if not user.is_recruiter:
+            raise GraphQLError("Recruiter access required")
+        if not user.company:
+            raise GraphQLError("Recruiter not linked to company")
+
+        cleaned_title = (title or "").strip()
+        if len(cleaned_title) < 3:
+            raise GraphQLError("Job title is required for AI suggestions")
+
+        normalized_kind = (kind or "").strip().lower()
+        if normalized_kind not in {"description", "skills"}:
+            raise GraphQLError("Invalid kind. Allowed values: description, skills")
+
+        draft = AiJobDraftRequest.objects.create(
+            created_by=user,
+            status=AiJobDraftRequest.STATUS_QUEUED,
+            message="AI draft generation queued",
+        )
+
+        current_app.send_task(
+            "resumes.tasks.generate_ai_job_draft",
+            kwargs={
+                "request_id": str(draft.request_id),
+                "title": cleaned_title,
+                "kind": normalized_kind,
+                "max_skills": max(min(int(max_skills or 8), 15), 1),
+            },
+            queue="get-questions",
+        )
+
+        return QueueAiJobDraft(
+            success=True,
+            queued=True,
+            request_id=str(draft.request_id),
+            message="AI draft generation queued",
+        )
+
+
 class DeleteJobQuestion(graphene.Mutation):
     success = graphene.Boolean()
 
@@ -475,13 +605,39 @@ class DeleteJobQuestion(graphene.Mutation):
         return DeleteJobQuestion(success=True)
 
 
-class ApplyToJob(graphene.Mutation):
-    application = graphene.Field(JobApplicationType)
+class DeleteAllJobQuestions(graphene.Mutation):
+    success = graphene.Boolean()
+    deleted_count = graphene.Int()
 
     class Arguments:
         job_id = graphene.Int(required=True)
 
     def mutate(self, info, job_id):
+        user = get_user(info)
+        if not user:
+            raise GraphQLError("Authentication required")
+        ensure_verified_user(user)
+        if not user.is_recruiter:
+            raise GraphQLError("Recruiter access required")
+        if not user.company:
+            raise GraphQLError("Recruiter not linked to company")
+
+        job = Job.objects.filter(id=job_id, company=user.company).first()
+        if not job:
+            raise GraphQLError("Job not found or access denied")
+
+        deleted_count, _ = JobQuestions.objects.filter(job=job).delete()
+        return DeleteAllJobQuestions(success=True, deleted_count=deleted_count)
+
+
+class ApplyToJob(graphene.Mutation):
+    application = graphene.Field(JobApplicationType)
+
+    class Arguments:
+        job_id = graphene.Int(required=True)
+        experience = GenericScalar(required=False, description="Skill experience data")
+
+    def mutate(self, info, job_id, experience=None):
         user = get_user(info)
         if not user:
             raise GraphQLError("Authentication required")
@@ -516,6 +672,7 @@ class ApplyToJob(graphene.Mutation):
                     job=job,
                     applicant=user,
                     resume=user.primary_resume,
+                    experience=experience or {},
                 )
         except IntegrityError:
             raise GraphQLError("Already applied to this job")
@@ -525,6 +682,12 @@ class ApplyToJob(graphene.Mutation):
             "resumes.tasks.scoring_resume",
             args=[job.id, application.id],
             queue="resume_parsing",
+        )
+
+        send_application_received_email.delay(
+            user_email=application.applicant.email,
+            username=application.applicant.username,
+            job_title=application.job.title,
         )
 
         return ApplyToJob(application=application)
@@ -595,7 +758,9 @@ class JobMutation(graphene.ObjectType):
     delete_job = DeleteJob.Field()
     create_job_question = CreateJobQuestion.Field()
     generate_ai_job_questions = GenerateAiJobQuestions.Field()
+    queue_ai_job_draft = QueueAiJobDraft.Field()
     update_job_question = UpdateJobQuestion.Field()
     delete_job_question = DeleteJobQuestion.Field()
+    delete_all_job_questions = DeleteAllJobQuestions.Field()
     apply_to_job = ApplyToJob.Field()
     update_application_status = UpdateApplicationStatus.Field()

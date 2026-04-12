@@ -1,6 +1,7 @@
 from celery import shared_task
 from .models import Resume
 from jobs.models import Skill, Job, JobApplication, JobQuestions
+from jobs.models import AiJobDraftRequest
 from django.utils import timezone
 from django.db import transaction
 from io import BytesIO
@@ -609,7 +610,32 @@ VERB_STRENGTH = {
     "worked": 0.4,
 }
 
-def calculate_experience_score(resume_data):
+def calculate_experience_score(resume_data, application=None):
+    """
+    Calculate experience score from application form data or resume text.
+    Prioritizes form data (application.experience) over resume parsing.
+    """
+    # If application has experience data from form, use it
+    if application and hasattr(application, 'experience') and application.experience:
+        exp_data = application.experience
+        if isinstance(exp_data, dict) and len(exp_data) > 0:
+            # Calculate average experience across all skills
+            total_years = 0
+            count = 0
+            for skill_id, exp_info in exp_data.items():
+                if isinstance(exp_info, dict):
+                    work_exp = exp_info.get('workExperience', 0) or 0
+                    personal_exp = exp_info.get('personalProjectExperience', 0) or 0
+                    total_years += work_exp + personal_exp
+                    count += 1
+
+            if count > 0:
+                avg_years = total_years / count
+                # Scale to 0-1: 0 years = 0.1, 5+ years = 1.0
+                score = min(avg_years / 5.0 + 0.1, 1.0)
+                return score
+
+    # Fall back to resume text analysis if no form data
     text = resume_data.get("sections", {}).get("experience", "")
 
     if not text:
@@ -646,12 +672,12 @@ def calculate_semantic_score(resume_data, jd_emb):
 
     return max(0, min(score, 1))
 
-def calculate_final_score(skill, category, experience, semantic):
+def calculate_final_score(skill, category, experience, semantic, skill_weight=0.5, category_weight=0.2, experience_weight=0.15, semantic_weight=0.15):
     return (
-        0.5 * skill +
-        0.2 * category +
-        0.15 * experience +
-        0.15 * semantic
+        skill_weight * skill +
+        category_weight * category +
+        experience_weight * experience +
+        semantic_weight * semantic
     )
 
 @shared_task(queue='resume_parsing')
@@ -872,7 +898,7 @@ def scoring_resume(job_id, application_id=None):
         file_logger.info(f"    • Category Score: {category_score:.3f} (Weight: 20%)")
 
         file_logger.info(f"\n  [SCORE 3] Experience Score:")
-        experience_score = calculate_experience_score(data)
+        experience_score = calculate_experience_score(data, application)
         experience_text = data.get("sections", {}).get("experience", "")
         file_logger.info(f"    • Experience Section Length: {len(experience_text)} characters")
         # Check for strong action verbs
@@ -904,16 +930,20 @@ def scoring_resume(job_id, application_id=None):
                 skill_score,
                 category_score,
                 experience_score,
-                semantic_score
+                semantic_score,
+                skill_weight=job.score_weight_skill,
+                category_weight=job.score_weight_category,
+                experience_weight=job.score_weight_experience,
+                semantic_weight=job.score_weight_semantic,
             )
-            file_logger.info(f"    • Formula: (0.5 × {skill_score:.3f}) + (0.2 × {category_score:.3f}) + (0.15 × {experience_score:.3f}) + (0.15 × {semantic_score:.3f})")
+            file_logger.info(f"    • Formula: ({job.score_weight_skill} × {skill_score:.3f}) + ({job.score_weight_category} × {category_score:.3f}) + ({job.score_weight_experience} × {experience_score:.3f}) + ({job.score_weight_semantic} × {semantic_score:.3f})")
             file_logger.info(f"    • Final Score (Weighted): {final_score:.3f}")
 
         file_logger.info(f"\n  Score Breakdown:")
-        file_logger.info(f"    ├─ Skill Score: {skill_score:.3f} × 50% = {skill_score * 0.5:.4f}")
-        file_logger.info(f"    ├─ Category Score: {category_score:.3f} × 20% = {category_score * 0.2:.4f}")
-        file_logger.info(f"    ├─ Experience Score: {experience_score:.3f} × 15% = {experience_score * 0.15:.4f}")
-        file_logger.info(f"    └─ Semantic Score: {semantic_score:.3f} × 15% = {semantic_score * 0.15:.4f}")
+        file_logger.info(f"    ├─ Skill Score: {skill_score:.3f} × {job.score_weight_skill*100:.0f}% = {skill_score * job.score_weight_skill:.4f}")
+        file_logger.info(f"    ├─ Category Score: {category_score:.3f} × {job.score_weight_category*100:.0f}% = {category_score * job.score_weight_category:.4f}")
+        file_logger.info(f"    ├─ Experience Score: {experience_score:.3f} × {job.score_weight_experience*100:.0f}% = {experience_score * job.score_weight_experience:.4f}")
+        file_logger.info(f"    └─ Semantic Score: {semantic_score:.3f} × {job.score_weight_semantic*100:.0f}% = {semantic_score * job.score_weight_semantic:.4f}")
         file_logger.info(f"    ═══════════════════════════════════════")
         file_logger.info(f"    FINAL SCORE: {final_score:.3f}")
 
@@ -1129,3 +1159,212 @@ def get_questions_from_jd(job_id, requested_count=15):
             "total": final_total,
             "message": "Questions created",
         }
+
+
+def _save_ai_job_draft(request_id, payload):
+    draft = AiJobDraftRequest.objects.filter(request_id=request_id).first()
+    if not draft:
+        return
+
+    draft.status = payload.get("status", draft.status)
+    draft.message = payload.get("message")
+    draft.generated_description = payload.get("generated_description")
+    draft.suggested_skill_ids = payload.get("suggested_skill_ids", [])
+    draft.suggested_skill_names = payload.get("suggested_skill_names", [])
+    draft.save(
+        update_fields=[
+            "status",
+            "message",
+            "generated_description",
+            "suggested_skill_ids",
+            "suggested_skill_names",
+            "updated_at",
+        ]
+    )
+
+
+@shared_task(queue="get-questions")
+def generate_ai_job_draft(
+    request_id,
+    title,
+    kind="description",
+    max_skills=8,
+):
+    payload = {
+        "status": AiJobDraftRequest.STATUS_PROCESSING,
+        "message": "Generating AI draft",
+        "generated_description": None,
+        "suggested_skill_ids": [],
+        "suggested_skill_names": [],
+    }
+    _save_ai_job_draft(request_id, payload)
+
+    try:
+        from google import genai
+    except ImportError:
+        logger.exception("google-genai is not installed; cannot generate AI job draft")
+        payload.update(
+            {
+                "status": AiJobDraftRequest.STATUS_FAILED,
+                "message": "AI provider dependency not installed",
+            }
+        )
+        _save_ai_job_draft(request_id, payload)
+        return payload
+
+    api_key = (
+        os.getenv("GEMINI_API")
+        or os.getenv("GOOGLE_API_KEY")
+        or getattr(settings, "GEMINI_API", None)
+        or getattr(settings, "GOOGLE_API_KEY", None)
+    )
+    if not api_key:
+        logger.error("Missing Gemini API key. Set GEMINI_API or GOOGLE_API_KEY")
+        payload.update(
+            {
+                "status": AiJobDraftRequest.STATUS_FAILED,
+                "message": "Missing Gemini API key",
+            }
+        )
+        _save_ai_job_draft(request_id, payload)
+        return payload
+
+    try:
+        client = genai.Client(api_key=api_key)
+    except Exception:
+        logger.exception("Failed to initialize Gemini client for job draft")
+        payload.update(
+            {
+                "status": AiJobDraftRequest.STATUS_FAILED,
+                "message": "Failed to initialize AI client",
+            }
+        )
+        _save_ai_job_draft(request_id, payload)
+        return payload
+
+    all_skills = list(Skill.objects.only("id", "name", "aliases").order_by("name"))
+    if not all_skills:
+        payload.update(
+            {
+                "status": AiJobDraftRequest.STATUS_COMPLETED,
+                "message": "No skills catalog found; generated description only",
+            }
+        )
+        _save_ai_job_draft(request_id, payload)
+        return payload
+
+    skill_lines = "\n".join([f"- {skill.name}" for skill in all_skills])
+    desired_skill_count = max(min(int(max_skills or 8), 15), 1)
+    normalized_kind = (kind or "description").strip().lower()
+
+    if normalized_kind == "skills":
+        prompt = (
+            "You are an expert recruiter assistant. "
+            "Return ONLY valid JSON object with shape "
+            '{"skills":["skill 1","skill 2"]}. '
+            "No markdown, no explanation. "
+            f"Suggest up to {desired_skill_count} most relevant skills for this job title: '{title}'. "
+            f"Use ONLY skills from this catalog:\n{skill_lines}\n"
+            "Do not invent new skill names."
+        )
+    else:
+        prompt = (
+            "You are an expert recruiter assistant. "
+            "Return ONLY valid JSON object with shape "
+            '{"description":"..."}. '
+            "No markdown, no explanation. "
+            f"Write a professional and concise job description for this title: '{title}'. "
+            "Include role overview, key responsibilities, and required qualifications as plain text paragraphs."
+        )
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
+    except Exception:
+        logger.exception("Gemini generate_content failed for job draft")
+        payload.update(
+            {
+                "status": AiJobDraftRequest.STATUS_FAILED,
+                "message": "AI generation failed",
+            }
+        )
+        _save_ai_job_draft(request_id, payload)
+        return payload
+
+    raw_text = (getattr(response, "text", "") or "").strip()
+    if not raw_text:
+        payload.update(
+            {
+                "status": AiJobDraftRequest.STATUS_FAILED,
+                "message": "Empty response from model",
+            }
+        )
+        _save_ai_job_draft(request_id, payload)
+        return payload
+
+    data = None
+    try:
+        data = json.loads(raw_text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{[\s\S]*\}", raw_text)
+        if match:
+            try:
+                data = json.loads(match.group(0))
+            except json.JSONDecodeError:
+                data = None
+
+    if not isinstance(data, dict):
+        payload.update(
+            {
+                "status": AiJobDraftRequest.STATUS_FAILED,
+                "message": "Invalid AI response format",
+            }
+        )
+        _save_ai_job_draft(request_id, payload)
+        return payload
+
+    generated_description = str(data.get("description") or "").strip()
+    suggested_names_raw = data.get("skills")
+    if not isinstance(suggested_names_raw, list):
+        suggested_names_raw = []
+
+    # Build lookup by skill name and aliases to map AI text back to canonical skill IDs.
+    lookup = {}
+    for skill in all_skills:
+        name_key = skill.name.strip().lower()
+        if name_key:
+            lookup[name_key] = skill
+
+        aliases = skill.aliases or []
+        if isinstance(aliases, list):
+            for alias in aliases:
+                alias_key = str(alias).strip().lower()
+                if alias_key and alias_key not in lookup:
+                    lookup[alias_key] = skill
+
+    selected_skills = []
+    seen_ids = set()
+    for raw_name in suggested_names_raw:
+        key = str(raw_name).strip().lower()
+        if not key:
+            continue
+        matched = lookup.get(key)
+        if matched and matched.id not in seen_ids:
+            seen_ids.add(matched.id)
+            selected_skills.append(matched)
+        if len(selected_skills) >= desired_skill_count:
+            break
+
+    payload.update(
+        {
+            "status": AiJobDraftRequest.STATUS_COMPLETED,
+            "message": "AI draft ready",
+            "generated_description": generated_description if normalized_kind == "description" else None,
+            "suggested_skill_ids": [int(skill.id) for skill in selected_skills] if normalized_kind == "skills" else [],
+            "suggested_skill_names": [skill.name for skill in selected_skills] if normalized_kind == "skills" else [],
+        }
+    )
+    _save_ai_job_draft(request_id, payload)
+    return payload

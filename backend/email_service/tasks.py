@@ -147,6 +147,35 @@ def send_application_status_email(
 
 
 @shared_task(queue="email_service")
+def send_application_received_email(
+    user_email: str,
+    username: str,
+    job_title: str,
+) -> None:
+    subject = f"Application received: {job_title}"
+    dashboard_url_base = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:5173")
+    dashboard_url = f"{dashboard_url_base}/applicant/dashboard?tab=applications"
+    html_message = render_to_string(
+        "email_service/application_received.html",
+        {
+            "username": username,
+            "job_title": job_title,
+            "dashboard_url": dashboard_url,
+            "current_year": timezone.now().year,
+        },
+    )
+    message = strip_tags(html_message)
+
+    _send_email(
+        subject=subject,
+        html_message=html_message,
+        message=message,
+        user_email=user_email,
+        category="application-received",
+    )
+
+
+@shared_task(queue="email_service")
 def send_otp_verification_email(
     user_email: str,
     recipient_name: str,
