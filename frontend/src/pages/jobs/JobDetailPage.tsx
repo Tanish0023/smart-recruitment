@@ -10,6 +10,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { JobDetailSkeleton } from "@/components/AppSkeletons";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { SkillExperienceForm } from "@/components/SkillExperienceForm";
+
+interface SkillExperience {
+  id: string;
+  name: string;
+  category?: { id: string; name: string } | null;
+}
 
 interface JobDetail {
     id: string;
@@ -21,6 +28,7 @@ interface JobDetail {
     createdAt: string;
     updatedAt: string;
     isActive: boolean;
+    skills?: SkillExperience[];
     company: { id: string; name: string; website?: string | null };
 }
 
@@ -30,6 +38,7 @@ export default function JobDetailPage() {
     const { isAuthenticated, user } = useAuth();
 
     const [applyError, setApplyError] = useState("");
+    const [showSkillForm, setShowSkillForm] = useState(false);
 
     const { data, loading, error } = useQuery<{ jobDetail: JobDetail }>(GET_JOB_DETAIL, {
         variables: { jobId: Number(id) },
@@ -46,6 +55,9 @@ export default function JobDetailPage() {
     const [applyMutation, { loading: applying }] = useMutation(APPLY_TO_JOB, {
         refetchQueries: [{ query: GET_MY_APPLICATIONS }],
         awaitRefetchQueries: true,
+        onCompleted() {
+            setShowSkillForm(false);
+        },
         onError(err) {
             setApplyError(err.message);
         },
@@ -65,7 +77,24 @@ export default function JobDetailPage() {
             setApplyError("Invalid job id");
             return;
         }
-        applyMutation({ variables: { jobId: Number(id) } });
+
+        // Show skill experience form if job has skills
+        const job = data?.jobDetail;
+        if (job?.skills && job.skills.length > 0) {
+            setShowSkillForm(true);
+            setApplyError("");
+        } else {
+            // No skills required, apply directly
+            applyMutation({ variables: { jobId: Number(id) } });
+        }
+    }
+
+    function handleSkillFormSubmit(experienceData: Record<string, { workExperience: number; personalProjectExperience: number }>) {
+        if (!id) {
+            setApplyError("Invalid job id");
+            return;
+        }
+        applyMutation({ variables: { jobId: Number(id), experience: experienceData } });
     }
 
     const job = data?.jobDetail;
@@ -77,6 +106,34 @@ export default function JobDetailPage() {
 
     return (
         <div className="min-h-screen bg-linear-to-br from-slate-50 via-white to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 transition-colors">
+            {/* Skill Experience Modal */}
+            {showSkillForm && job?.skills && job.skills.length > 0 && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                        {/* Background overlay */}
+                        <div
+                            className="fixed inset-0 bg-black/50 transition-opacity"
+                            onClick={() => !applying && setShowSkillForm(false)}
+                        />
+
+                        {/* Modal content */}
+                        <div className="relative inline-block align-bottom bg-white dark:bg-slate-900 rounded-3xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:w-full sm:max-w-2xl mx-auto">
+                            <div className="px-6 py-8 sm:px-8">
+                                <SkillExperienceForm
+                                    requiredSkills={job.skills.map((s) => ({
+                                        id: s.id,
+                                        name: s.name,
+                                    }))}
+                                    onSubmit={handleSkillFormSubmit}
+                                    loading={applying}
+                                    onBack={() => !applying && setShowSkillForm(false)}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Navbar */}
             <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/85 backdrop-blur-md border-b border-gray-200 dark:border-slate-800">
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">

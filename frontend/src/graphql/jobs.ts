@@ -36,9 +36,21 @@ export const GET_JOB_DETAIL = gql`
         id
         name
       }
+      skills {
+        id
+        name
+        category {
+          id
+          name
+        }
+      }
       location
       salaryRange
       minimumExperienceRequired
+      scoreWeightSkill
+      scoreWeightCategory
+      scoreWeightExperience
+      scoreWeightSemantic
       createdAt
       updatedAt
       isActive
@@ -67,6 +79,10 @@ export const GET_COMPANY_JOBS = gql`
       }
       location
       salaryRange
+      scoreWeightSkill
+      scoreWeightCategory
+      scoreWeightExperience
+      scoreWeightSemantic
       minimumExperienceRequired
       isActive
       questionCount
@@ -185,6 +201,10 @@ export const CREATE_JOB = gql`
     $minimumExperienceRequired: Int
     $skills: [Int!]
     $categories: [Int!]
+    $scoreWeightSkill: Float
+    $scoreWeightCategory: Float
+    $scoreWeightExperience: Float
+    $scoreWeightSemantic: Float
   ) {
     createJob(
       title: $title
@@ -194,6 +214,10 @@ export const CREATE_JOB = gql`
       minimumExperienceRequired: $minimumExperienceRequired
       skills: $skills
       categories: $categories
+      scoreWeightSkill: $scoreWeightSkill
+      scoreWeightCategory: $scoreWeightCategory
+      scoreWeightExperience: $scoreWeightExperience
+      scoreWeightSemantic: $scoreWeightSemantic
     ) {
       job {
         id
@@ -204,6 +228,10 @@ export const CREATE_JOB = gql`
         minimumExperienceRequired
         isActive
         createdAt
+        scoreWeightSkill
+        scoreWeightCategory
+        scoreWeightExperience
+        scoreWeightSemantic
         categories {
           id
           name
@@ -224,6 +252,10 @@ export const UPDATE_JOB = gql`
     $isActive: Boolean
     $skills: [Int!]
     $categories: [Int!]
+    $scoreWeightSkill: Float
+    $scoreWeightCategory: Float
+    $scoreWeightExperience: Float
+    $scoreWeightSemantic: Float
   ) {
     updateJob(
       jobId: $jobId
@@ -235,6 +267,10 @@ export const UPDATE_JOB = gql`
       isActive: $isActive
       skills: $skills
       categories: $categories
+      scoreWeightSkill: $scoreWeightSkill
+      scoreWeightCategory: $scoreWeightCategory
+      scoreWeightExperience: $scoreWeightExperience
+      scoreWeightSemantic: $scoreWeightSemantic
     ) {
       job {
         id
@@ -245,6 +281,10 @@ export const UPDATE_JOB = gql`
         minimumExperienceRequired
         isActive
         updatedAt
+        scoreWeightSkill
+        scoreWeightCategory
+        scoreWeightExperience
+        scoreWeightSemantic
         skills {
           id
           name
@@ -267,12 +307,13 @@ export const DELETE_JOB = gql`
 `;
 
 export const APPLY_TO_JOB = gql`
-  mutation ApplyToJob($jobId: Int!) {
-    applyToJob(jobId: $jobId) {
+  mutation ApplyToJob($jobId: Int!, $experience: GenericScalar) {
+    applyToJob(jobId: $jobId, experience: $experience) {
       application {
         id
         status
         appliedAt
+        experience
       }
     }
   }

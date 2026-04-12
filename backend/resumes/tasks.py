@@ -610,7 +610,32 @@ VERB_STRENGTH = {
     "worked": 0.4,
 }
 
-def calculate_experience_score(resume_data):
+def calculate_experience_score(resume_data, application=None):
+    """
+    Calculate experience score from application form data or resume text.
+    Prioritizes form data (application.experience) over resume parsing.
+    """
+    # If application has experience data from form, use it
+    if application and hasattr(application, 'experience') and application.experience:
+        exp_data = application.experience
+        if isinstance(exp_data, dict) and len(exp_data) > 0:
+            # Calculate average experience across all skills
+            total_years = 0
+            count = 0
+            for skill_id, exp_info in exp_data.items():
+                if isinstance(exp_info, dict):
+                    work_exp = exp_info.get('workExperience', 0) or 0
+                    personal_exp = exp_info.get('personalProjectExperience', 0) or 0
+                    total_years += work_exp + personal_exp
+                    count += 1
+
+            if count > 0:
+                avg_years = total_years / count
+                # Scale to 0-1: 0 years = 0.1, 5+ years = 1.0
+                score = min(avg_years / 5.0 + 0.1, 1.0)
+                return score
+
+    # Fall back to resume text analysis if no form data
     text = resume_data.get("sections", {}).get("experience", "")
 
     if not text:
@@ -647,12 +672,12 @@ def calculate_semantic_score(resume_data, jd_emb):
 
     return max(0, min(score, 1))
 
-def calculate_final_score(skill, category, experience, semantic):
+def calculate_final_score(skill, category, experience, semantic, skill_weight=0.5, category_weight=0.2, experience_weight=0.15, semantic_weight=0.15):
     return (
-        0.5 * skill +
-        0.2 * category +
-        0.15 * experience +
-        0.15 * semantic
+        skill_weight * skill +
+        category_weight * category +
+        experience_weight * experience +
+        semantic_weight * semantic
     )
 
 @shared_task(queue='resume_parsing')
@@ -873,7 +898,7 @@ def scoring_resume(job_id, application_id=None):
         file_logger.info(f"    • Category Score: {category_score:.3f} (Weight: 20%)")
 
         file_logger.info(f"\n  [SCORE 3] Experience Score:")
-        experience_score = calculate_experience_score(data)
+        experience_score = calculate_experience_score(data, application)
         experience_text = data.get("sections", {}).get("experience", "")
         file_logger.info(f"    • Experience Section Length: {len(experience_text)} characters")
         # Check for strong action verbs
@@ -905,16 +930,20 @@ def scoring_resume(job_id, application_id=None):
                 skill_score,
                 category_score,
                 experience_score,
-                semantic_score
+                semantic_score,
+                skill_weight=job.score_weight_skill,
+                category_weight=job.score_weight_category,
+                experience_weight=job.score_weight_experience,
+                semantic_weight=job.score_weight_semantic,
             )
-            file_logger.info(f"    • Formula: (0.5 × {skill_score:.3f}) + (0.2 × {category_score:.3f}) + (0.15 × {experience_score:.3f}) + (0.15 × {semantic_score:.3f})")
+            file_logger.info(f"    • Formula: ({job.score_weight_skill} × {skill_score:.3f}) + ({job.score_weight_category} × {category_score:.3f}) + ({job.score_weight_experience} × {experience_score:.3f}) + ({job.score_weight_semantic} × {semantic_score:.3f})")
             file_logger.info(f"    • Final Score (Weighted): {final_score:.3f}")
 
         file_logger.info(f"\n  Score Breakdown:")
-        file_logger.info(f"    ├─ Skill Score: {skill_score:.3f} × 50% = {skill_score * 0.5:.4f}")
-        file_logger.info(f"    ├─ Category Score: {category_score:.3f} × 20% = {category_score * 0.2:.4f}")
-        file_logger.info(f"    ├─ Experience Score: {experience_score:.3f} × 15% = {experience_score * 0.15:.4f}")
-        file_logger.info(f"    └─ Semantic Score: {semantic_score:.3f} × 15% = {semantic_score * 0.15:.4f}")
+        file_logger.info(f"    ├─ Skill Score: {skill_score:.3f} × {job.score_weight_skill*100:.0f}% = {skill_score * job.score_weight_skill:.4f}")
+        file_logger.info(f"    ├─ Category Score: {category_score:.3f} × {job.score_weight_category*100:.0f}% = {category_score * job.score_weight_category:.4f}")
+        file_logger.info(f"    ├─ Experience Score: {experience_score:.3f} × {job.score_weight_experience*100:.0f}% = {experience_score * job.score_weight_experience:.4f}")
+        file_logger.info(f"    └─ Semantic Score: {semantic_score:.3f} × {job.score_weight_semantic*100:.0f}% = {semantic_score * job.score_weight_semantic:.4f}")
         file_logger.info(f"    ═══════════════════════════════════════")
         file_logger.info(f"    FINAL SCORE: {final_score:.3f}")
 

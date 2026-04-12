@@ -1,5 +1,6 @@
 import graphene
 from graphene_django.types import DjangoObjectType
+from graphene.types.generic import GenericScalar
 from graphql import GraphQLError
 from uuid import uuid4
 from django.contrib.auth import get_user_model
@@ -76,12 +77,13 @@ class JobType(DjangoObjectType):
             "skills",
             "categories",
             "questions",
+            "score_weight_skill",
+            "score_weight_category",
+            "score_weight_experience",
+            "score_weight_semantic",
         )
 
     def resolve_skills(self, info):
-        user = getattr(info.context, "user", None)
-        if not user or not user.is_authenticated or not user.is_recruiter:
-            return []
         return self.skills.all()
 
     def resolve_categories(self, info):
@@ -114,6 +116,7 @@ class JobApplicationType(DjangoObjectType):
             "score",
             "status",
             "applied_at",
+            "experience",
         )
 
     def resolve_resume_url(self, info):
@@ -276,6 +279,10 @@ class CreateJob(graphene.Mutation):
         minimum_experience_required = graphene.Int()
         skills = graphene.List(graphene.Int)
         categories = graphene.List(graphene.Int)
+        score_weight_skill = graphene.Float()
+        score_weight_category = graphene.Float()
+        score_weight_experience = graphene.Float()
+        score_weight_semantic = graphene.Float()
 
     def mutate(
         self,
@@ -287,6 +294,10 @@ class CreateJob(graphene.Mutation):
         minimum_experience_required=0,
         skills=None,
         categories=None,
+        score_weight_skill=None,
+        score_weight_category=None,
+        score_weight_experience=None,
+        score_weight_semantic=None,
     ):
         user = get_user(info)
         if not user:
@@ -297,6 +308,18 @@ class CreateJob(graphene.Mutation):
         if not user.company:
             raise GraphQLError("Recruiter not linked to company")
 
+        # Validate and set default scoring weights
+        weights = {
+            "score_weight_skill": score_weight_skill or 0.5,
+            "score_weight_category": score_weight_category or 0.2,
+            "score_weight_experience": score_weight_experience or 0.15,
+            "score_weight_semantic": score_weight_semantic or 0.15,
+        }
+
+        for key, value in weights.items():
+            if not (0.0 <= value <= 1.0):
+                raise GraphQLError(f"{key} must be between 0 and 1")
+
         job = Job.objects.create(
             title=title,
             description=description,
@@ -305,6 +328,7 @@ class CreateJob(graphene.Mutation):
             location=location,
             salary_range=salary_range,
             minimum_experience_required=max(minimum_experience_required or 0, 0),
+            **weights,
         )
 
         if skills:
@@ -333,6 +357,10 @@ class UpdateJob(graphene.Mutation):
         is_active = graphene.Boolean()
         skills = graphene.List(graphene.Int)
         categories = graphene.List(graphene.Int)
+        score_weight_skill = graphene.Float()
+        score_weight_category = graphene.Float()
+        score_weight_experience = graphene.Float()
+        score_weight_semantic = graphene.Float()
 
     def mutate(self, info, job_id, **kwargs):
         user = get_user(info)
@@ -357,6 +385,11 @@ class UpdateJob(graphene.Mutation):
                 continue
             if key == "minimum_experience_required" and value is not None:
                 setattr(job, key, max(value, 0))
+                continue
+            if key.startswith("score_weight_") and value is not None:
+                if not (0.0 <= value <= 1.0):
+                    raise GraphQLError(f"{key} must be between 0 and 1")
+                setattr(job, key, value)
                 continue
             if value is not None:
                 setattr(job, key, value)
@@ -602,8 +635,9 @@ class ApplyToJob(graphene.Mutation):
 
     class Arguments:
         job_id = graphene.Int(required=True)
+        experience = GenericScalar(required=False, description="Skill experience data")
 
-    def mutate(self, info, job_id):
+    def mutate(self, info, job_id, experience=None):
         user = get_user(info)
         if not user:
             raise GraphQLError("Authentication required")
@@ -638,6 +672,7 @@ class ApplyToJob(graphene.Mutation):
                     job=job,
                     applicant=user,
                     resume=user.primary_resume,
+                    experience=experience or {},
                 )
         except IntegrityError:
             raise GraphQLError("Already applied to this job")

@@ -32,6 +32,10 @@ interface Job {
     id: string; title: string; description: string;
     location?: string | null; salaryRange?: string | null;
     minimumExperienceRequired: number;
+    scoreWeightSkill?: number;
+    scoreWeightCategory?: number;
+    scoreWeightExperience?: number;
+    scoreWeightSemantic?: number;
     skills: Skill[];
     categories: Category[];
     questionCount?: number;
@@ -173,8 +177,18 @@ const jobSchema = z.object({
     location: z.string().optional(),
     salaryRange: z.string().optional(),
     minimumExperienceRequired: z.coerce.number().min(0, "Minimum experience must be 0 or greater"),
+    scoreWeightSkill: z.coerce.number().min(0).max(1),
+    scoreWeightCategory: z.coerce.number().min(0).max(1),
+    scoreWeightExperience: z.coerce.number().min(0).max(1),
+    scoreWeightSemantic: z.coerce.number().min(0).max(1),
     categoryIds: z.array(z.string()).default([]),
     skillIds: z.array(z.string()).default([]),
+}).refine((v) => {
+    const sum = v.scoreWeightSkill + v.scoreWeightCategory + v.scoreWeightExperience + v.scoreWeightSemantic;
+    return Math.abs(sum - 1) < 0.001;
+}, {
+    message: "Scoring weights must sum to 1.0",
+    path: ["scoreWeightSkill"],
 });
 
 type JobFormValues = z.infer<typeof jobSchema>;
@@ -225,6 +239,10 @@ function JobForm({
         location: initial?.location ?? "",
         salaryRange: initial?.salaryRange ?? "",
         minimumExperienceRequired: initial?.minimumExperienceRequired ?? 0,
+        scoreWeightSkill: initial?.scoreWeightSkill ?? 0.5,
+        scoreWeightCategory: initial?.scoreWeightCategory ?? 0.2,
+        scoreWeightExperience: initial?.scoreWeightExperience ?? 0.15,
+        scoreWeightSemantic: initial?.scoreWeightSemantic ?? 0.15,
         categoryIds: initial?.categoryIds ?? [],
         skillIds: initial?.skillIds ?? [],
     };
@@ -240,6 +258,7 @@ function JobForm({
                 const normalizedCategoryQuery = categorySearch.trim().toLowerCase();
                 const selectedCategoryIds = new Set(values.categoryIds);
                 const titleIsDescriptive = isDescriptiveTitle(values.title);
+                const scoringWeightTotal = Number(values.scoreWeightSkill || 0) + Number(values.scoreWeightCategory || 0) + Number(values.scoreWeightExperience || 0) + Number(values.scoreWeightSemantic || 0);
                 const filteredCategories = allCategories
                     .filter((category) => {
                         if (!normalizedCategoryQuery) {
@@ -336,6 +355,33 @@ function JobForm({
                             }}
                         />
                         <ErrorMessage name="minimumExperienceRequired" component="p" className="text-xs text-red-500 mt-1" />
+                    </div>
+
+                    <div className="rounded-xl border border-gray-200 dark:border-slate-700 p-4 bg-gray-50 dark:bg-slate-900/40">
+                        <label className="text-sm font-semibold text-gray-800 dark:text-slate-200 block mb-2">Scoring Ratio Weights</label>
+                        <p className="text-xs text-gray-500 dark:text-slate-400 mb-3">Set weights used in final score. Total must be 1.0.</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs text-gray-600 dark:text-slate-400 mb-1 block">Skill Weight</label>
+                                <Field as={Input} type="number" min="0" max="1" step="0.05" name="scoreWeightSkill" />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-600 dark:text-slate-400 mb-1 block">Category Weight</label>
+                                <Field as={Input} type="number" min="0" max="1" step="0.05" name="scoreWeightCategory" />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-600 dark:text-slate-400 mb-1 block">Experience Weight</label>
+                                <Field as={Input} type="number" min="0" max="1" step="0.05" name="scoreWeightExperience" />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-600 dark:text-slate-400 mb-1 block">Semantic Weight</label>
+                                <Field as={Input} type="number" min="0" max="1" step="0.05" name="scoreWeightSemantic" />
+                            </div>
+                        </div>
+                        <p className={`text-xs mt-2 ${Math.abs(scoringWeightTotal - 1) < 0.001 ? "text-emerald-600" : "text-red-500"}`}>
+                            Total: {scoringWeightTotal.toFixed(2)}
+                        </p>
+                        <ErrorMessage name="scoreWeightSkill" component="p" className="text-xs text-red-500 mt-1" />
                     </div>
 
                     <div>
@@ -732,6 +778,10 @@ export default function CompanyDashboard() {
                     location: values.location || null,
                     salaryRange: values.salaryRange || null,
                     minimumExperienceRequired: Number(values.minimumExperienceRequired || 0),
+                    scoreWeightSkill: Number(values.scoreWeightSkill || 0.5),
+                    scoreWeightCategory: Number(values.scoreWeightCategory || 0.2),
+                    scoreWeightExperience: Number(values.scoreWeightExperience || 0.15),
+                    scoreWeightSemantic: Number(values.scoreWeightSemantic || 0.15),
                     categories: (values.categoryIds ?? []).map((categoryId) => Number(categoryId)),
                     skills: (values.skillIds ?? []).map((skillId) => Number(skillId)),
                 },
@@ -1063,6 +1113,10 @@ export default function CompanyDashboard() {
                                                 location: v.location || null,
                                                 salaryRange: v.salaryRange || null,
                                                 minimumExperienceRequired: Number(v.minimumExperienceRequired || 0),
+                                                scoreWeightSkill: Number(v.scoreWeightSkill || 0.5),
+                                                scoreWeightCategory: Number(v.scoreWeightCategory || 0.2),
+                                                scoreWeightExperience: Number(v.scoreWeightExperience || 0.15),
+                                                scoreWeightSemantic: Number(v.scoreWeightSemantic || 0.15),
                                                 categories: (v.categoryIds ?? []).map((categoryId) => Number(categoryId)),
                                                 skills: (v.skillIds ?? []).map((skillId) => Number(skillId)),
                                             },
@@ -1364,6 +1418,10 @@ export default function CompanyDashboard() {
                                     location: editJob.location ?? undefined,
                                     salaryRange: editJob.salaryRange ?? undefined,
                                     minimumExperienceRequired: editJob.minimumExperienceRequired,
+                                    scoreWeightSkill: editJob.scoreWeightSkill,
+                                    scoreWeightCategory: editJob.scoreWeightCategory,
+                                    scoreWeightExperience: editJob.scoreWeightExperience,
+                                    scoreWeightSemantic: editJob.scoreWeightSemantic,
                                     categoryIds: (editJob.categories ?? []).map((category) => category.id),
                                     skillIds: (editJob.skills ?? []).map((skill) => skill.id),
                                 }}

@@ -76,6 +76,13 @@ class Job(models.Model):
     salary_range = models.CharField(max_length=100, blank=True, null=True)
     minimum_experience_required = models.PositiveIntegerField(default=0)
 
+    # Scoring weights for calculating application scores
+    # Default values sum to 1.0
+    score_weight_skill = models.FloatField(default=0.5, validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
+    score_weight_category = models.FloatField(default=0.2, validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
+    score_weight_experience = models.FloatField(default=0.15, validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
+    score_weight_semantic = models.FloatField(default=0.15, validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
+
     def __str__(self):
         return f"{self.title} - {self.company.name}"
 
@@ -125,6 +132,14 @@ class JobApplication(models.Model):
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
         null=True,
         blank=True,
+    )
+
+    # Store skill experience for each required skill
+    # Format: { "skill_id": { "workExperience": 2.5, "personalProjectExperience": 1.0 } }
+    experience = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Skill experience data: {skill_id: {workExperience: years, personalProjectExperience: years}}"
     )
 
     # recruiter updates this
