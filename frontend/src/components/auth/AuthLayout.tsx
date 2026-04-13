@@ -80,7 +80,7 @@ export function AuthLayout({
                     </ul>
                 </div>
 
-                <p className="relative z-10 text-white/50 text-sm">© 2026 SmartRecruit. All rights reserved.</p>
+                <p className="relative z-10 text-white/50 text-sm">© {new Date().getFullYear()} SmartRecruit. All rights reserved.</p>
             </div>
 
             {/* Right panel — form */}
@@ -117,7 +117,7 @@ export function AuthLayout({
                     </p>
 
                     <div className="mt-6 text-center">
-                        <Link to="/" className="text-xs text-gray-400 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-200 transition-colors">
+                        <Link to="/auth" className="text-xs text-gray-400 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-200 transition-colors">
                             ← Back to role selection
                         </Link>
                     </div>

@@ -49,11 +49,15 @@ Thumbs.db
 db.sqlite3
 db.sqlite3-journal
 local_settings.py
+media/
 
 # Node (if frontend exists)
 node_modules/
 npm-debug.log
 yarn-error.log
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
 
 # Docker
 .dockerignore
@@ -94,3 +98,5 @@ notebooks
 
 Dockerfile*
 docker-compose*
+
+logs/

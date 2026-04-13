@@ -134,6 +134,10 @@ celerybeat.pid
 staticfiles/
 media/
 
+# Frontend build output
+frontend/dist/
+frontend/.vite/
+
 # SageMath parsed files
 *.sage.py
 

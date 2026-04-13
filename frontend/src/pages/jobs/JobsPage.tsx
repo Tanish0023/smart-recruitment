@@ -27,13 +27,15 @@ interface Application {
 const PAGE_SIZE = 12;
 
 export default function JobsPage() {
-    const { isAuthenticated, user } = useAuth();
+    const { isAuthenticated, user, logout } = useAuth();
     const navigate = useNavigate();
     const [search, setSearch] = useState("");
     const [locationFilter, setLocationFilter] = useState("");
     const [hasMore, setHasMore] = useState(true);
     const loadMoreRef = useRef<HTMLDivElement | null>(null);
     const isFetchingMoreRef = useRef(false);
+    const [dashboardMenuOpen, setDashboardMenuOpen] = useState(false);
+    const dashboardMenuRef = useRef<HTMLDivElement | null>(null);
 
     const isApplicant = isAuthenticated && !user?.isRecruiter;
 
@@ -69,6 +71,17 @@ export default function JobsPage() {
     const uniqueLocations = Array.from(
         new Set(jobs.map((j) => j.location).filter(Boolean))
     ) as string[];
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dashboardMenuRef.current && !dashboardMenuRef.current.contains(event.target as Node)) {
+                setDashboardMenuOpen(false);
+            }
+        }
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     useEffect(() => {
         const target = loadMoreRef.current;
@@ -144,25 +157,45 @@ export default function JobsPage() {
                     <div className="flex items-center gap-3">
                         <ThemeToggle />
                         {isAuthenticated ? (
-                            <button
-                                onClick={handleDashboard}
-                                className="flex items-center gap-1.5 text-sm font-medium text-indigo-700 dark:text-indigo-300 hover:text-indigo-900 dark:hover:text-indigo-200 transition-colors"
-                            >
-                                Dashboard
-                                <ArrowRight className="w-4 h-4" />
-                            </button>
-                        ) : (
-                            <>
-                                <Link to="/applicant/login" className="text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-indigo-700 dark:hover:text-indigo-300">
-                                    Sign In
-                                </Link>
-                                <Link
-                                    to="/applicant/register"
-                                    className="text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full transition-all hover:shadow-md"
+                            <div className="relative" ref={dashboardMenuRef}>
+                                <button
+                                    onClick={() => setDashboardMenuOpen((v) => !v)}
+                                    className="flex items-center gap-1.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full transition-all hover:shadow-md shadow-indigo-500/20"
                                 >
-                                    Get Started
-                                </Link>
-                            </>
+                                    Dashboard
+                                    <ArrowRight className="w-4 h-4" />
+                                </button>
+                                {dashboardMenuOpen && (
+                                    <div className="absolute right-0 mt-2 w-44 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl z-50">
+                                        <button
+                                            onClick={() => {
+                                                setDashboardMenuOpen(false);
+                                                handleDashboard();
+                                            }}
+                                            className="block w-full px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                        >
+                                            Open dashboard
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setDashboardMenuOpen(false);
+                                                logout();
+                                                navigate("/");
+                                            }}
+                                            className="block w-full px-4 py-3 text-left text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                                        >
+                                            Log out
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <Link
+                                to="/auth"
+                                className="text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full transition-all hover:shadow-md shadow-indigo-500/20"
+                            >
+                                Sign In / Up
+                            </Link>
                         )}
                     </div>
                 </div>

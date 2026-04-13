@@ -19,6 +19,7 @@ import ForgotPassword from "@/pages/auth/ForgotPassword";
 import NewLandingPage from "./pages/landing/NewLandingPage/NewLandingPage";
 import JobsPage from "@/pages/jobs/JobsPage";
 import JobDetailPage from "@/pages/jobs/JobDetailPage";
+import AuthChoicePage from "./pages/auth/AuthChoicePage";
 
 /* ── Auth Guard helpers ─────────────────────────────── */
 function RequireAuth({ children, recruiterOnly = false }: { children: ReactNode; recruiterOnly?: boolean }) {
@@ -72,6 +73,7 @@ function App() {
           <Routes>
             {/* Landing */}
             <Route path="/" element={<NewLandingPage />} />
+            <Route path="/auth" element={<AuthChoicePage />} />
 
             {/* Public job pages */}
             <Route path="/jobs" element={<JobsPage />} />
