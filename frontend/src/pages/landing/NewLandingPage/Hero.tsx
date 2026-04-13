@@ -79,7 +79,7 @@ const Hero = () => {
             opacity: [0.3, 0.5, 0.3],
           }}
           transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute -top-40 -right-40 w-[30rem] h-[30rem] rounded-full bg-indigo-500/20 blur-[100px]"
+          className="absolute -top-40 -right-40 w-120 h-120 rounded-full bg-indigo-500/20 blur-[100px]"
         />
         <motion.div
           animate={{
@@ -87,7 +87,7 @@ const Hero = () => {
             opacity: [0.2, 0.4, 0.2],
           }}
           transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-          className="absolute top-40 -left-20 w-[24rem] h-[24rem] rounded-full bg-purple-500/20 blur-[100px]"
+          className="absolute top-40 -left-20 w-96 h-96 rounded-full bg-purple-500/20 blur-[100px]"
         />
 
         {/* Floating AI Data Nodes */}
@@ -132,7 +132,7 @@ const Hero = () => {
             variants={itemVariants}
             className="text-5xl lg:text-7xl dark:text-white font-extrabold tracking-tight text-gray-900 mb-8 leading-[1.1]"
           >
-            Hire the <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-400 dark:via-purple-400 dark:to-indigo-400" style={{ backgroundSize: '200% auto', animation: 'gradient 3s linear infinite' }}>perfect candidate</span> faster with AI
+            Hire the <span className="text-transparent bg-clip-text bg-linear-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-400 dark:via-purple-400 dark:to-indigo-400" style={{ backgroundSize: '200% auto', animation: 'gradient 3s linear infinite' }}>perfect candidate</span> faster with AI
           </motion.h1>
 
           <motion.p
@@ -148,12 +148,12 @@ const Hero = () => {
           >
             <MagneticButton>
               <Link
-                to="/company/login"
+                to="/auth"
                 className="w-full sm:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full font-semibold text-lg transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-2 group relative overflow-hidden"
               >
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
+                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
                 <span className="relative z-10 flex items-center gap-2">
-                  Post a Job Now
+                  Sign In / Up
                   <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                 </span>
               </Link>
@@ -164,7 +164,7 @@ const Hero = () => {
                 to="/jobs"
                 className="w-full sm:w-auto px-8 py-4 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-800 dark:text-white border border-gray-200 dark:border-slate-700 shadow-lg shadow-gray-200/20 dark:shadow-slate-900/50 rounded-full font-semibold text-lg transition-all"
               >
-                Find Jobs
+                Browse Jobs
               </Link>
             </MagneticButton>
           </motion.div>
