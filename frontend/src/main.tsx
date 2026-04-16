@@ -5,7 +5,7 @@ import App from "./App";
 import { ApolloProvider } from "@apollo/client/react";
 import client from "./apollo/client";
 import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <ApolloProvider client={client}>
