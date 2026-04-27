@@ -165,7 +165,8 @@ erDiagram
 
 - **Resume Model**: Tracks file processing status (PENDING, PROCESSING, DONE, FAILED) [5](#1-4)
 - **NLP Pipeline**: Uses spaCy for text extraction and skill identification
-- **Scoring Algorithm**: Semantic similarity calculation using sentence-transformers
+- **Scoring Algorithm**: Semantic similarity calculation using
+  -transformers
 
 ## 🛠️ Technology Stack
 
@@ -359,8 +360,8 @@ graph TD
 ### Using Docker (Recommended)
 
 ```bash
-# Start all services
-docker compose up --build
+# Start all services (uses scripts from package.json)
+npm run docker:up:build
 
 # Services will be available at:
 # - Django Backend: http://localhost:8000
@@ -370,17 +371,43 @@ docker compose up --build
 # - Redis: localhost:3400
 ```
 
+### Backend Setup with Docker (Dev)
+
+Use the npm scripts from package.json to run the Docker dev stack.
+
+```bash
+# From the project root
+# 1) Create a .env.dev file in the project root
+#    (include at least: POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, DEBUG, SECRET_KEY)
+
+# 2) Build and start services
+npm run docker:up:build
+
+# 3) Backend URLs
+# - API: http://localhost:8000
+# - GraphQL: http://localhost:8000/graphql/
+
+# 4) Follow backend logs (optional)
+npm run docker:logs
+
+# 5) Stop services
+npm run docker:down
+```
+
 ### Local Development
 
 #### Backend Setup
 
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
+# Create backend/.env using the variables in "Backend Environment Variables" below
+python manage.py makemigrations
 python manage.py migrate
-python manage.py runserver
+python manage.py runserver 0.0.0.0:8000
 ```
 
 #### Frontend Setup
