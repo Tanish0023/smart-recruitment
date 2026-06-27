@@ -15,6 +15,8 @@ services:
     build: ./backend
     image: smart-recruitment-backend:latest
     restart: unless-stopped
+    volumes:
+      - static_volume:/app/staticfiles
     command: sh entrypoint.sh
     env_file:
       - .env.prod
@@ -82,6 +84,7 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
+      - static_volume:/app/staticfiles:ro
     depends_on:
       - backend
 
@@ -99,3 +102,4 @@ services:
 
 volumes:
   redis_data:
+  static_volume:
