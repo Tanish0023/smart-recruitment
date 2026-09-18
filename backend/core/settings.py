@@ -206,6 +206,8 @@ if database_url:
             ssl_require=not DEBUG,
         )
     }
+
+    DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 else:
     DB_NAME = os.getenv("POSTGRES_DB", "recruitment_db")
     DB_USER = os.getenv("POSTGRES_USER", "postgres")
@@ -221,6 +223,7 @@ else:
             "PASSWORD": DB_PASSWORD,
             "HOST": DB_HOST,
             "PORT": DB_PORT,
+            "CONN_HEALTH_CHECKS": True,
         }
     }
 
