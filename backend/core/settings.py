@@ -20,7 +20,7 @@ import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.celery import CeleryIntegration
 from dotenv import load_dotenv
-from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import DisallowedHost, ImproperlyConfigured
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -63,6 +63,7 @@ if sentry_dsn:
             DjangoIntegration(),
             CeleryIntegration(),
         ],
+        ignore_errors=[DisallowedHost],
         send_default_pii=True,
         traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
     )
